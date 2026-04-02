@@ -36,7 +36,7 @@ void main() {
     // Add camera motion influence
     if (u_cameraActive > 0.5) {
         vec4 cam = texture2D(u_cameraMotion, v_uv);
-        vec2 camVel = cam.xy * 2.0 - 1.0;
+        vec2 camVel = -(cam.xy * 2.0 - 1.0);
         vel += camVel * cam.a * cam.b * u_cameraStrength * u_dt;
     }
 

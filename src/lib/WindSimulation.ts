@@ -65,6 +65,8 @@ export class WindSimulation {
   private currentCameraTexture = 0;
   private motionVectorFBO!: { fbo: WebGLFramebuffer; texture: WebGLTexture };
   private cameraActive = false;
+  private cameraCanvas: HTMLCanvasElement;
+  private cameraCtx: CanvasRenderingContext2D;
 
   // Time
   private time = 0;
@@ -86,6 +88,12 @@ export class WindSimulation {
     if (!this.instancedArraysExt) {
       throw new Error('ANGLE_instanced_arrays not supported');
     }
+
+    // Offscreen canvas for downscaling + mirroring camera frames to fieldSize
+    this.cameraCanvas = document.createElement('canvas');
+    this.cameraCanvas.width = this.fieldSize;
+    this.cameraCanvas.height = this.fieldSize;
+    this.cameraCtx = this.cameraCanvas.getContext('2d')!;
 
     this.init();
   }
@@ -340,10 +348,19 @@ export class WindSimulation {
 
   setCameraFrame(video: HTMLVideoElement) {
     const gl = this.gl;
+    const size = this.fieldSize;
     this.cameraActive = true;
-    // Upload video frame to current camera texture (resized to 256x256 by GPU)
+    // Downscale + mirror horizontally (user-facing camera) to fieldSize x fieldSize
+    const ctx = this.cameraCtx;
+    ctx.save();
+    ctx.translate(size, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, size, size);
+    ctx.restore();
     gl.bindTexture(gl.TEXTURE_2D, this.cameraTextures[this.currentCameraTexture]);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.cameraCanvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
   }
 
   resize(width: number, height: number) {
@@ -405,7 +422,7 @@ export class WindSimulation {
     gl.bindTexture(gl.TEXTURE_2D, this.motionVectorFBO.texture);
     gl.uniform1i(this.velocityProgram.uniforms.u_cameraMotion, 1);
     gl.uniform1f(this.velocityProgram.uniforms.u_cameraActive, this.cameraActive ? 1.0 : 0.0);
-    gl.uniform1f(this.velocityProgram.uniforms.u_cameraStrength, 3.0);
+    gl.uniform1f(this.velocityProgram.uniforms.u_cameraStrength, 25.0);
 
     gl.uniform2f(this.velocityProgram.uniforms.u_mousePos, this.mousePos[0], this.mousePos[1]);
     gl.uniform2f(this.velocityProgram.uniforms.u_mouseVel, this.mouseVel[0], this.mouseVel[1]);
