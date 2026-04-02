@@ -11,6 +11,7 @@ uniform float u_dt;
 uniform sampler2D u_cameraMotion;
 uniform float u_cameraActive;
 uniform float u_cameraStrength;
+uniform float u_audioLevel;    // 0..1, current audio energy (newest sample)
 
 varying vec2 v_uv;
 
@@ -33,11 +34,13 @@ void main() {
         vel += u_mouseVel * influence * u_dt * 8.0;
     }
 
-    // Add camera motion influence
+    // Add camera motion influence — audio pulses amplify camera contribution
     if (u_cameraActive > 0.5) {
         vec4 cam = texture2D(u_cameraMotion, v_uv);
         vec2 camVel = -(cam.xy * 2.0 - 1.0);
-        vel += camVel * cam.a * cam.b * u_cameraStrength * u_dt;
+        // Quiet = near-frozen, beats = explosive (0.05x to 8x range)
+        float audioBoost = mix(0.05, 8.0, u_audioLevel);
+        vel += camVel * cam.a * cam.b * u_cameraStrength * audioBoost * u_dt;
     }
 
     // Clamp velocity magnitude

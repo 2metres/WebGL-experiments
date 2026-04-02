@@ -14,10 +14,9 @@ float luminance(vec3 rgb) {
 
 void main() {
     float bestSAD = 1e10;
+    float zeroSAD = 0.0;       // SAD at zero offset (no motion)
     vec2 bestOffset = vec2(0.0);
     float texelSize = 1.0 / 256.0;
-
-    float centerLum = luminance(texture2D(u_currentFrame, v_uv).rgb);
 
     for (int sy = -SEARCH_RADIUS; sy <= SEARCH_RADIUS; sy++) {
         for (int sx = -SEARCH_RADIUS; sx <= SEARCH_RADIUS; sx++) {
@@ -32,6 +31,11 @@ void main() {
                 }
             }
 
+            // Track zero-offset SAD separately
+            if (sx == 0 && sy == 0) {
+                zeroSAD = sad;
+            }
+
             if (sad < bestSAD) {
                 bestSAD = sad;
                 bestOffset = vec2(float(sx), float(sy));
@@ -39,16 +43,26 @@ void main() {
         }
     }
 
-    // Normalize SAD to block area for confidence
     float blockArea = float((2 * BLOCK_RADIUS + 1) * (2 * BLOCK_RADIUS + 1));
-    float avgSAD = bestSAD / blockArea;
-    // Lower SAD = better match = higher confidence
-    float confidence = 1.0 - clamp(avgSAD * 4.0, 0.0, 1.0);
-
     float magnitude = length(bestOffset) / float(SEARCH_RADIUS);
 
-    // Threshold: discard weak motion
-    if (magnitude < 0.1 || confidence < 0.15) {
+    // Key noise rejection: the best offset must be significantly better than
+    // staying in place. If the improvement is marginal, it's just noise.
+    float improvement = (zeroSAD - bestSAD) / max(zeroSAD, 0.001);
+
+    // Also check that there IS actual change at this pixel (zeroSAD > threshold)
+    // Low zeroSAD = pixel didn't change = no real motion
+    float avgZeroSAD = zeroSAD / blockArea;
+
+    if (magnitude < 0.15 || improvement < 0.3 || avgZeroSAD < 0.04) {
+        gl_FragColor = vec4(0.5, 0.5, 0.0, 0.0);
+        return;
+    }
+
+    float avgSAD = bestSAD / blockArea;
+    float confidence = 1.0 - clamp(avgSAD * 4.0, 0.0, 1.0);
+
+    if (confidence < 0.2) {
         gl_FragColor = vec4(0.5, 0.5, 0.0, 0.0);
         return;
     }

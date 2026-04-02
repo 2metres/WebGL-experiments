@@ -49,6 +49,7 @@ export class WindSimulation {
   // Audio
   private audioHistoryTexture!: WebGLTexture;
   private audioActive = false;
+  private currentAudioLevel = 0;
 
   // Trigger grid
   private triggerGrid = new TriggerGrid();
@@ -107,7 +108,7 @@ export class WindSimulation {
     });
 
     this.velocityProgram = this.createProgram(velocityUpdateVert, velocityUpdateFrag, {
-      uniforms: ['u_prevVelocity', 'u_mousePos', 'u_mouseVel', 'u_mouseActive', 'u_decay', 'u_radius', 'u_dt', 'u_cameraMotion', 'u_cameraActive', 'u_cameraStrength'],
+      uniforms: ['u_prevVelocity', 'u_mousePos', 'u_mouseVel', 'u_mouseActive', 'u_decay', 'u_radius', 'u_dt', 'u_cameraMotion', 'u_cameraActive', 'u_cameraStrength', 'u_audioLevel'],
       attributes: ['a_position'],
     });
 
@@ -342,6 +343,7 @@ export class WindSimulation {
   setAudioHistory(data: Uint8Array) {
     const gl = this.gl;
     this.audioActive = true;
+    this.currentAudioLevel = data[0] / 255;
     gl.bindTexture(gl.TEXTURE_2D, this.audioHistoryTexture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
   }
@@ -423,11 +425,14 @@ export class WindSimulation {
     gl.uniform1i(this.velocityProgram.uniforms.u_cameraMotion, 1);
     gl.uniform1f(this.velocityProgram.uniforms.u_cameraActive, this.cameraActive ? 1.0 : 0.0);
     gl.uniform1f(this.velocityProgram.uniforms.u_cameraStrength, 25.0);
+    gl.uniform1f(this.velocityProgram.uniforms.u_audioLevel, this.currentAudioLevel);
 
     gl.uniform2f(this.velocityProgram.uniforms.u_mousePos, this.mousePos[0], this.mousePos[1]);
     gl.uniform2f(this.velocityProgram.uniforms.u_mouseVel, this.mouseVel[0], this.mouseVel[1]);
     gl.uniform1f(this.velocityProgram.uniforms.u_mouseActive, this.mouseActive ? 1.0 : 0.0);
-    gl.uniform1f(this.velocityProgram.uniforms.u_decay, 0.99);
+    // Faster decay when camera active: field clears between beats instead of accumulating
+    const decay = this.cameraActive && this.audioActive ? 0.93 : 0.99;
+    gl.uniform1f(this.velocityProgram.uniforms.u_decay, decay);
     gl.uniform1f(this.velocityProgram.uniforms.u_radius, 0.04);
     gl.uniform1f(this.velocityProgram.uniforms.u_dt, Math.min(dt, 0.05));
 
