@@ -2,7 +2,7 @@ export class AudioCapture {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private freqData: Uint8Array = new Uint8Array(0);
+  private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0);
   private _isActive = false;
   private prevLevel = 0;
 

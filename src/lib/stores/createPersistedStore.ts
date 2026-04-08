@@ -14,8 +14,8 @@ export function createPersistedStore<T extends object>(
     persist(
       (set) => ({
         ...defaults,
-        set: (k, value) => set({ [k]: value } as Partial<Store>),
-        resetDefaults: () => set(defaults as Partial<Store>),
+        set: (k, value) => set({ [k]: value } as unknown as Partial<Store>),
+        resetDefaults: () => set(defaults as unknown as Partial<Store>),
       }),
       { name: key },
     ),

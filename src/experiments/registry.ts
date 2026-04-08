@@ -1,7 +1,9 @@
+import type { Component } from "svelte";
+
 export interface ExperimentEntry {
   id: string;
   label: string;
-  loader: () => Promise<{ default: typeof import("svelte").SvelteComponent }>;
+  loader: () => Promise<{ default: Component }>;
 }
 
 export const experiments: ExperimentEntry[] = [

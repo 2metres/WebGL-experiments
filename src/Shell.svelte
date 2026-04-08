@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getRoute, navigate } from "./router.svelte.ts";
+  import { getRoute, navigate } from "./router.svelte";
   import { experiments, getExperiment } from "./experiments/registry";
 
   let fullscreen = $state(false);
