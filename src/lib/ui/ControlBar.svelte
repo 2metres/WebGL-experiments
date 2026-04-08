@@ -28,7 +28,9 @@
     font-size: 14px;
     cursor: pointer;
     backdrop-filter: blur(8px);
-    transition: background 0.2s, color 0.2s;
+    transition:
+      background 0.2s,
+      color 0.2s;
   }
 
   .controls :global(button:hover) {

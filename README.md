@@ -1,4 +1,4 @@
-# Wind Vector Map
+# WebGL Experiments
 
 An interactive WebGL wind simulation that responds to microphone input and webcam motion. Draw trigger paths on screen, then watch arrow fields ripple with audio-driven pulses and camera-detected movement.
 
@@ -25,8 +25,8 @@ The simulation runs entirely on the GPU using WebGL 1 with instanced rendering:
 ## Running
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 ## Tech

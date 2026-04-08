@@ -2,34 +2,21 @@
   import { getRoute, navigate } from "./router.svelte";
   import { experiments, getExperiment } from "./experiments/registry";
 
-  let fullscreen = $state(false);
-
   const route = $derived(getRoute());
   const entry = $derived(getExperiment(route));
   const componentPromise = $derived(entry ? entry.loader() : null);
-
-  function onFullscreenChange() {
-    fullscreen = !!document.fullscreenElement;
-  }
-
-  $effect(() => {
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  });
 </script>
 
-{#if !fullscreen}
-  <nav>
-    {#each experiments as exp}
-      <button
-        class:active={route === exp.id}
-        onclick={() => navigate(exp.id)}
-      >
-        {exp.label}
-      </button>
-    {/each}
-  </nav>
-{/if}
+<nav>
+  {#each experiments as exp}
+    <button
+      class:active={route === exp.id}
+      onclick={() => navigate(exp.id)}
+    >
+      {exp.label}
+    </button>
+  {/each}
+</nav>
 
 {#if componentPromise}
   {#await componentPromise then mod}

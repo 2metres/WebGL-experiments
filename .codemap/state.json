@@ -1,0 +1,56 @@
+{
+  "updated_at": "2026-04-08T16:22:06.212189+10:00",
+  "file_count": 71,
+  "hubs": [
+    "src/lib/gl/types.ts"
+  ],
+  "importers": {
+    "src/Shell.svelte": [
+      "src/main.ts"
+    ],
+    "src/app.css": [
+      "src/main.ts"
+    ],
+    "src/experiments/vector-map/TriggerGrid.ts": [
+      "src/experiments/vector-map/WindSimulation.ts"
+    ],
+    "src/experiments/vector-map/shaders/index.ts": [
+      "src/experiments/vector-map/WindSimulation.ts"
+    ],
+    "src/lib/gl/index.ts": [
+      "src/experiments/vector-map/WindSimulation.ts"
+    ],
+    "src/lib/gl/types.ts": [
+      "src/lib/gl/fbo.ts",
+      "src/lib/gl/quad.ts",
+      "src/lib/gl/shader.ts"
+    ],
+    "src/lib/stores/index.ts": [
+      "src/experiments/vector-map/settingsStore.ts"
+    ]
+  },
+  "imports": {
+    "src/experiments/vector-map/WindSimulation.ts": [
+      "src/experiments/vector-map/shaders/index.ts",
+      "src/experiments/vector-map/TriggerGrid.ts",
+      "src/lib/gl/index.ts"
+    ],
+    "src/experiments/vector-map/settingsStore.ts": [
+      "src/lib/stores/index.ts"
+    ],
+    "src/lib/gl/fbo.ts": [
+      "src/lib/gl/types.ts"
+    ],
+    "src/lib/gl/quad.ts": [
+      "src/lib/gl/types.ts"
+    ],
+    "src/lib/gl/shader.ts": [
+      "src/lib/gl/types.ts"
+    ],
+    "src/main.ts": [
+      "src/app.css",
+      "src/Shell.svelte"
+    ]
+  },
+  "recent_events": null
+}

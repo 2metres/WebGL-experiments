@@ -10,11 +10,9 @@
   let sim: WindSimulation;
   let audio: AudioCapture;
   let camera: CameraCapture;
-  let micEnabled = $state(false);
-  let cameraEnabled = $state(false);
   let panelOpen = $state(false);
+
   let drawing = false;
-  let fullscreen = $state(false);
 
   const loop = createAnimationLoop((dt) => {
     const s = settingsStore.getState();
@@ -38,6 +36,7 @@
     audio = new AudioCapture();
     camera = new CameraCapture();
     loop.start();
+    enableMediaDevices();
   }
 
   function handleResize(width: number, height: number) {
@@ -45,26 +44,13 @@
   }
 
   onMount(() => {
-    const onFsChange = () => { fullscreen = !!document.fullscreenElement; };
-    document.addEventListener("fullscreenchange", onFsChange);
     return () => {
       loop.stop();
       audio?.destroy();
       camera?.destroy();
       sim?.destroy();
-      document.removeEventListener("fullscreenchange", onFsChange);
     };
   });
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      fullscreen = true;
-    } else {
-      document.exitFullscreen();
-      fullscreen = false;
-    }
-  }
 
   async function enableMediaDevices() {
     try {
@@ -72,8 +58,8 @@
         audio: true,
         video: { facingMode: "user", width: 640, height: 480 },
       });
-      micEnabled = await audio.start(stream);
-      cameraEnabled = await camera.start(stream);
+      await audio.start(stream);
+      await camera.start(stream);
     } catch (e) {
       console.warn("Media access denied or unavailable:", e);
     }
@@ -122,18 +108,12 @@
   ontouchend={handleTouchEnd}
 />
 
-{#if !fullscreen}
-  <ControlBar>
-    {#if !micEnabled || !cameraEnabled}
-      <button onclick={enableMediaDevices}>Enable Mic & Camera</button>
-    {/if}
-    <button onclick={() => (panelOpen = !panelOpen)}>
-      {panelOpen ? "Close" : "Settings"}
-    </button>
-    <button onclick={toggleFullscreen}>Fullscreen</button>
-  </ControlBar>
-{/if}
+<ControlBar>
+  <button onclick={() => (panelOpen = !panelOpen)}>
+    {panelOpen ? "Close" : "Settings"}
+  </button>
+</ControlBar>
 
-{#if panelOpen && !fullscreen}
+{#if panelOpen}
   <VectorMapSettings />
 {/if}
