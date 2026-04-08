@@ -14,7 +14,7 @@ float luminance(vec3 rgb) {
 
 void main() {
     float bestSAD = 1e10;
-    float zeroSAD = 0.0;       // SAD at zero offset (no motion)
+    float zeroSAD = 0.0;
     vec2 bestOffset = vec2(0.0);
     float texelSize = 1.0 / 256.0;
 
@@ -31,10 +31,7 @@ void main() {
                 }
             }
 
-            // Track zero-offset SAD separately
-            if (sx == 0 && sy == 0) {
-                zeroSAD = sad;
-            }
+            if (sx == 0 && sy == 0) zeroSAD = sad;
 
             if (sad < bestSAD) {
                 bestSAD = sad;
@@ -45,13 +42,7 @@ void main() {
 
     float blockArea = float((2 * BLOCK_RADIUS + 1) * (2 * BLOCK_RADIUS + 1));
     float magnitude = length(bestOffset) / float(SEARCH_RADIUS);
-
-    // Key noise rejection: the best offset must be significantly better than
-    // staying in place. If the improvement is marginal, it's just noise.
     float improvement = (zeroSAD - bestSAD) / max(zeroSAD, 0.001);
-
-    // Also check that there IS actual change at this pixel (zeroSAD > threshold)
-    // Low zeroSAD = pixel didn't change = no real motion
     float avgZeroSAD = zeroSAD / blockArea;
 
     if (magnitude < 0.15 || improvement < 0.3 || avgZeroSAD < 0.04) {
@@ -67,8 +58,6 @@ void main() {
         return;
     }
 
-    // Encode motion: 0.5-centered so 0.5 = no motion
     vec2 motionEncoded = bestOffset / (float(SEARCH_RADIUS) * 2.0) + 0.5;
-
     gl_FragColor = vec4(motionEncoded, confidence, magnitude);
 }

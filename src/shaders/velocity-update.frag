@@ -12,6 +12,8 @@ uniform sampler2D u_cameraMotion;
 uniform float u_cameraActive;
 uniform float u_cameraStrength;
 uniform float u_audioLevel;    // 0..1, current audio energy (newest sample)
+uniform float u_audioBoostMin;
+uniform float u_audioBoostMax;
 
 varying vec2 v_uv;
 
@@ -21,8 +23,19 @@ void main() {
     // Decode previous velocity from 0..1 to -1..1
     vec2 vel = prev.xy * 2.0 - 1.0;
 
-    // Apply decay
-    vel *= u_decay;
+    // Per-pixel decay: freeze where camera has no motion, decay where it does
+    float pixelDecay = u_decay;
+    if (u_cameraActive > 0.5) {
+        vec4 cam = texture2D(u_cameraMotion, v_uv);
+        float hasMotion = step(0.01, cam.a);
+        // No motion at this pixel → hold (decay=1.0); motion → normal decay
+        pixelDecay = mix(1.0, u_decay, hasMotion);
+
+        vec2 camVel = -(cam.xy * 2.0 - 1.0);
+        float audioBoost = mix(u_audioBoostMin, u_audioBoostMax, u_audioLevel);
+        vel += camVel * cam.a * cam.b * u_cameraStrength * audioBoost * u_dt;
+    }
+    vel *= pixelDecay;
 
     // Add mouse influence
     if (u_mouseActive > 0.5) {
@@ -32,15 +45,6 @@ void main() {
 
         // Add mouse velocity with influence falloff
         vel += u_mouseVel * influence * u_dt * 8.0;
-    }
-
-    // Add camera motion influence — audio pulses amplify camera contribution
-    if (u_cameraActive > 0.5) {
-        vec4 cam = texture2D(u_cameraMotion, v_uv);
-        vec2 camVel = -(cam.xy * 2.0 - 1.0);
-        // Quiet = near-frozen, beats = explosive (0.05x to 8x range)
-        float audioBoost = mix(0.05, 8.0, u_audioLevel);
-        vel += camVel * cam.a * cam.b * u_cameraStrength * audioBoost * u_dt;
     }
 
     // Clamp velocity magnitude

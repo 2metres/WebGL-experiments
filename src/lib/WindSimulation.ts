@@ -4,6 +4,7 @@ import velocityUpdateVert from '../shaders/velocity-update.vert?raw';
 import velocityUpdateFrag from '../shaders/velocity-update.frag?raw';
 import diffuseFrag from '../shaders/diffuse.frag?raw';
 import motionDetectFrag from '../shaders/motion-detect.frag?raw';
+import cameraSeqUpdateFrag from '../shaders/camera-seq-update.frag?raw';
 import { TriggerGrid } from './TriggerGrid';
 
 interface ShaderProgram {
@@ -12,15 +13,40 @@ interface ShaderProgram {
   attributes: Record<string, number>;
 }
 
+export interface SimSettings {
+  cameraStrength: number;
+  audioBoostMin: number;
+  audioBoostMax: number;
+  velocityDecay: number;
+  cameraVelocityDecay: number;
+  triggerDecay: number;
+  diffusion: number;
+  motionThreshold: number;
+}
+
 export class WindSimulation {
   private gl: WebGLRenderingContext;
   private canvas: HTMLCanvasElement;
+
+  renderMode = 0; // 0=arrows, 1=digits
+
+  settings: SimSettings = {
+    cameraStrength: 25,
+    audioBoostMin: 0.05,
+    audioBoostMax: 8,
+    velocityDecay: 0.99,
+    cameraVelocityDecay: 0.90,
+    triggerDecay: 0.999,
+    diffusion: 0.15,
+    motionThreshold: 2,
+  };
 
   // Programs
   private arrowProgram!: ShaderProgram;
   private velocityProgram!: ShaderProgram;
   private diffuseProgram!: ShaderProgram;
   private motionDetectProgram!: ShaderProgram;
+  private cameraSeqProgram!: ShaderProgram;
 
   // Velocity field ping-pong textures
   private velocityFBOs: { fbo: WebGLFramebuffer; texture: WebGLTexture }[] = [];
@@ -37,6 +63,9 @@ export class WindSimulation {
   private gridVBO!: WebGLBuffer;
   private quadVBO!: WebGLBuffer;
   private arrowVertexCount = 0;
+  private digitVBO!: WebGLBuffer;
+  private digitAtlasTexture!: WebGLTexture;
+  private lineAtlasTexture!: WebGLTexture;
   private gridInstanceCount = 0;
 
   // Mouse state
@@ -65,6 +94,9 @@ export class WindSimulation {
   private cameraTextures: WebGLTexture[] = [];
   private currentCameraTexture = 0;
   private motionVectorFBO!: { fbo: WebGLFramebuffer; texture: WebGLTexture };
+  private cameraSeqFBOs: { fbo: WebGLFramebuffer; texture: WebGLTexture }[] = [];
+  private currentCameraSeq = 0;
+  private cameraSeqCounter = 0;
   private cameraActive = false;
   private cameraCanvas: HTMLCanvasElement;
   private cameraCtx: CanvasRenderingContext2D;
@@ -103,12 +135,12 @@ export class WindSimulation {
     const gl = this.gl;
 
     this.arrowProgram = this.createProgram(arrowsVert, arrowsFrag, {
-      uniforms: ['u_resolution', 'u_velocityField', 'u_triggerMap', 'u_audioHistory', 'u_audioActive', 'u_hasTriggers', 'u_maxSequenceIndex', 'u_time', 'u_arrowScale', 'u_cellSize'],
+      uniforms: ['u_resolution', 'u_velocityField', 'u_triggerMap', 'u_cameraSeqMap', 'u_audioHistory', 'u_audioActive', 'u_hasTriggers', 'u_hasCameraSeq', 'u_maxSequenceIndex', 'u_maxCameraSeqIndex', 'u_time', 'u_arrowScale', 'u_cellSize', 'u_renderMode', 'u_digitAtlas', 'u_atlasCells'],
       attributes: ['a_position', 'a_vertex'],
     });
 
     this.velocityProgram = this.createProgram(velocityUpdateVert, velocityUpdateFrag, {
-      uniforms: ['u_prevVelocity', 'u_mousePos', 'u_mouseVel', 'u_mouseActive', 'u_decay', 'u_radius', 'u_dt', 'u_cameraMotion', 'u_cameraActive', 'u_cameraStrength', 'u_audioLevel'],
+      uniforms: ['u_prevVelocity', 'u_mousePos', 'u_mouseVel', 'u_mouseActive', 'u_decay', 'u_radius', 'u_dt', 'u_cameraMotion', 'u_cameraActive', 'u_cameraStrength', 'u_audioLevel', 'u_audioBoostMin', 'u_audioBoostMax'],
       attributes: ['a_position'],
     });
 
@@ -119,6 +151,11 @@ export class WindSimulation {
 
     this.motionDetectProgram = this.createProgram(velocityUpdateVert, motionDetectFrag, {
       uniforms: ['u_currentFrame', 'u_prevFrame'],
+      attributes: ['a_position'],
+    });
+
+    this.cameraSeqProgram = this.createProgram(velocityUpdateVert, cameraSeqUpdateFrag, {
+      uniforms: ['u_prevSeq', 'u_motionVec', 'u_seqCounterHigh', 'u_seqCounterLow', 'u_triggerDecay', 'u_motionThreshold'],
       attributes: ['a_position'],
     });
 
@@ -168,7 +205,15 @@ export class WindSimulation {
     // Motion vector FBO (256x256 RGBA)
     this.motionVectorFBO = this.createFBO(this.fieldSize, this.fieldSize);
 
+    // Camera sequence ping-pong FBOs (256x256 RGBA)
+    for (let i = 0; i < 2; i++) {
+      this.cameraSeqFBOs.push(this.createFBO(this.fieldSize, this.fieldSize));
+    }
+
     this.createArrowGeometry();
+    this.createDigitGeometry();
+    this.createDigitAtlas();
+    this.createLineAtlas();
     this.createGridPositions();
 
     this.quadVBO = gl.createBuffer()!;
@@ -192,6 +237,90 @@ export class WindSimulation {
     this.arrowVBO = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.arrowVBO);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  }
+
+  private createDigitGeometry() {
+    // Quad from -0.5..0.5 (same scale as arrow), no rotation applied
+    const gl = this.gl;
+    const s = 0.5;
+    const vertices = new Float32Array([
+      -s, -s,  s, -s, -s, s,
+      -s,  s,  s, -s,  s, s,
+    ]);
+    this.digitVBO = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.digitVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  }
+
+  private createDigitAtlas() {
+    const gl = this.gl;
+    const cellSize = 64;
+    const atlasCanvas = document.createElement('canvas');
+    atlasCanvas.width = cellSize * 10;
+    atlasCanvas.height = cellSize;
+    const ctx = atlasCanvas.getContext('2d')!;
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${cellSize * 0.75}px monospace`;
+    for (let i = 0; i < 10; i++) {
+      ctx.fillText(String(i), cellSize * i + cellSize / 2, cellSize / 2);
+    }
+    this.digitAtlasTexture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.digitAtlasTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasCanvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  private createLineAtlas() {
+    // 8 cells mapping to 4 unique box-drawing glyphs: ─ ╱ │ ╲ ─ ╱ │ ╲
+    // Sectors from -π: left(─), down-left(╲), down(│), down-right(╱), right(─), up-right(╱... wait
+    // Actually: sectors 0-7 map angles [-π..π] in order
+    // We draw the line chars directly on canvas for crisp rendering
+    const gl = this.gl;
+    const cellSize = 64;
+    const numCells = 8;
+    const atlasCanvas = document.createElement('canvas');
+    atlasCanvas.width = cellSize * numCells;
+    atlasCanvas.height = cellSize;
+    const ctx = atlasCanvas.getContext('2d')!;
+    ctx.strokeStyle = 'white';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 5;
+
+    // Glyphs: ─  ╲  │  ╱  ─  ╲  │  ╱
+    // Angles from atan: sector 0 = left, 1 = down-left, 2 = down, 3 = down-right,
+    //                    4 = right, 5 = up-right, 6 = up, 7 = up-left
+    const glyphs = [
+      [0, 0.5, 1, 0.5],   // ─ horizontal (left)
+      [0, 0, 1, 1],       // ╲ diagonal (down-left)
+      [0.5, 0, 0.5, 1],   // │ vertical (down)
+      [1, 0, 0, 1],       // ╱ diagonal (down-right)
+      [0, 0.5, 1, 0.5],   // ─ horizontal (right)
+      [1, 0, 0, 1],       // ╱ diagonal (up-right)
+      [0.5, 0, 0.5, 1],   // │ vertical (up)
+      [0, 0, 1, 1],       // ╲ diagonal (up-left)
+    ];
+    const pad = 0.15;
+    for (let i = 0; i < numCells; i++) {
+      const ox = cellSize * i;
+      const [x1, y1, x2, y2] = glyphs[i];
+      ctx.beginPath();
+      ctx.moveTo(ox + (pad + x1 * (1 - 2 * pad)) * cellSize, (pad + y1 * (1 - 2 * pad)) * cellSize);
+      ctx.lineTo(ox + (pad + x2 * (1 - 2 * pad)) * cellSize, (pad + y2 * (1 - 2 * pad)) * cellSize);
+      ctx.stroke();
+    }
+
+    this.lineAtlasTexture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.lineAtlasTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasCanvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
 
   private createGridPositions() {
@@ -405,6 +534,37 @@ export class WindSimulation {
       gl.vertexAttribPointer(this.motionDetectProgram.attributes.a_position, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+      // --- Step 0b: Update camera sequence map ---
+      this.cameraSeqCounter++;
+      const seqHigh = Math.floor(this.cameraSeqCounter / 256) & 0xFF;
+      const seqLow = this.cameraSeqCounter & 0xFF;
+
+      const writeSeq = this.cameraSeqFBOs[1 - this.currentCameraSeq];
+      const readSeq = this.cameraSeqFBOs[this.currentCameraSeq];
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, writeSeq.fbo);
+      gl.useProgram(this.cameraSeqProgram.program);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, readSeq.texture);
+      gl.uniform1i(this.cameraSeqProgram.uniforms.u_prevSeq, 0);
+
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.motionVectorFBO.texture);
+      gl.uniform1i(this.cameraSeqProgram.uniforms.u_motionVec, 1);
+
+      gl.uniform1f(this.cameraSeqProgram.uniforms.u_seqCounterHigh, seqHigh / 255);
+      gl.uniform1f(this.cameraSeqProgram.uniforms.u_seqCounterLow, seqLow / 255);
+      gl.uniform1f(this.cameraSeqProgram.uniforms.u_triggerDecay, this.settings.triggerDecay);
+      gl.uniform1f(this.cameraSeqProgram.uniforms.u_motionThreshold, this.settings.motionThreshold);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
+      gl.enableVertexAttribArray(this.cameraSeqProgram.attributes.a_position);
+      gl.vertexAttribPointer(this.cameraSeqProgram.attributes.a_position, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      this.currentCameraSeq = 1 - this.currentCameraSeq;
+
       // Swap camera ping-pong
       this.currentCameraTexture = 1 - this.currentCameraTexture;
     }
@@ -424,14 +584,15 @@ export class WindSimulation {
     gl.bindTexture(gl.TEXTURE_2D, this.motionVectorFBO.texture);
     gl.uniform1i(this.velocityProgram.uniforms.u_cameraMotion, 1);
     gl.uniform1f(this.velocityProgram.uniforms.u_cameraActive, this.cameraActive ? 1.0 : 0.0);
-    gl.uniform1f(this.velocityProgram.uniforms.u_cameraStrength, 25.0);
+    gl.uniform1f(this.velocityProgram.uniforms.u_cameraStrength, this.settings.cameraStrength);
     gl.uniform1f(this.velocityProgram.uniforms.u_audioLevel, this.currentAudioLevel);
+    gl.uniform1f(this.velocityProgram.uniforms.u_audioBoostMin, this.settings.audioBoostMin);
+    gl.uniform1f(this.velocityProgram.uniforms.u_audioBoostMax, this.settings.audioBoostMax);
 
     gl.uniform2f(this.velocityProgram.uniforms.u_mousePos, this.mousePos[0], this.mousePos[1]);
     gl.uniform2f(this.velocityProgram.uniforms.u_mouseVel, this.mouseVel[0], this.mouseVel[1]);
     gl.uniform1f(this.velocityProgram.uniforms.u_mouseActive, this.mouseActive ? 1.0 : 0.0);
-    // Faster decay when camera active: field clears between beats instead of accumulating
-    const decay = this.cameraActive && this.audioActive ? 0.93 : 0.99;
+    const decay = this.cameraActive && this.audioActive ? this.settings.cameraVelocityDecay : this.settings.velocityDecay;
     gl.uniform1f(this.velocityProgram.uniforms.u_decay, decay);
     gl.uniform1f(this.velocityProgram.uniforms.u_radius, 0.04);
     gl.uniform1f(this.velocityProgram.uniforms.u_dt, Math.min(dt, 0.05));
@@ -449,7 +610,7 @@ export class WindSimulation {
     gl.bindTexture(gl.TEXTURE_2D, this.readVelocity.texture);
     gl.uniform1i(this.diffuseProgram.uniforms.u_velocity, 0);
     gl.uniform2f(this.diffuseProgram.uniforms.u_texelSize, 1.0 / this.fieldSize, 1.0 / this.fieldSize);
-    gl.uniform1f(this.diffuseProgram.uniforms.u_diffusion, 0.15);
+    gl.uniform1f(this.diffuseProgram.uniforms.u_diffusion, this.settings.diffusion);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
     gl.enableVertexAttribArray(this.diffuseProgram.attributes.a_position);
@@ -481,16 +642,36 @@ export class WindSimulation {
     gl.bindTexture(gl.TEXTURE_2D, this.audioHistoryTexture);
     gl.uniform1i(this.arrowProgram.uniforms.u_audioHistory, 2);
 
+    // Texture unit 3: camera sequence map
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.cameraSeqFBOs[this.currentCameraSeq].texture);
+    gl.uniform1i(this.arrowProgram.uniforms.u_cameraSeqMap, 3);
+
     gl.uniform1f(this.arrowProgram.uniforms.u_audioActive, this.audioActive ? 1.0 : 0.0);
     gl.uniform1f(this.arrowProgram.uniforms.u_hasTriggers, this.hasTriggers ? 1.0 : 0.0);
+    gl.uniform1f(this.arrowProgram.uniforms.u_hasCameraSeq, this.cameraActive && this.cameraSeqCounter > 0 ? 1.0 : 0.0);
     gl.uniform1f(this.arrowProgram.uniforms.u_maxSequenceIndex, Math.max(1, this.triggerGrid.maxSequenceIndex));
+    gl.uniform1f(this.arrowProgram.uniforms.u_maxCameraSeqIndex, Math.max(1, this.cameraSeqCounter));
     gl.uniform1f(this.arrowProgram.uniforms.u_time, this.time);
     gl.uniform2f(this.arrowProgram.uniforms.u_resolution, this.canvas.width, this.canvas.height);
     gl.uniform1f(this.arrowProgram.uniforms.u_arrowScale, 1.2);
     gl.uniform2f(this.arrowProgram.uniforms.u_cellSize, 2.0 / this.gridCols, 2.0 / this.gridRows);
+    gl.uniform1f(this.arrowProgram.uniforms.u_renderMode, this.renderMode);
 
-    // Wedge geometry (per-vertex)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.arrowVBO);
+    // Texture unit 4: glyph atlas (digits or lines)
+    gl.activeTexture(gl.TEXTURE4);
+    if (this.renderMode === 2) {
+      gl.bindTexture(gl.TEXTURE_2D, this.lineAtlasTexture);
+      gl.uniform1f(this.arrowProgram.uniforms.u_atlasCells, 8.0);
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, this.digitAtlasTexture);
+      gl.uniform1f(this.arrowProgram.uniforms.u_atlasCells, 10.0);
+    }
+    gl.uniform1i(this.arrowProgram.uniforms.u_digitAtlas, 4);
+
+    // Per-vertex geometry (arrow or glyph quad)
+    const vertexBuf = this.renderMode >= 1 ? this.digitVBO : this.arrowVBO;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuf);
     gl.enableVertexAttribArray(this.arrowProgram.attributes.a_vertex);
     gl.vertexAttribPointer(this.arrowProgram.attributes.a_vertex, 2, gl.FLOAT, false, 0, 0);
     ext.vertexAttribDivisorANGLE(this.arrowProgram.attributes.a_vertex, 0);
@@ -524,12 +705,20 @@ export class WindSimulation {
     for (const tex of this.cameraTextures) gl.deleteTexture(tex);
     gl.deleteFramebuffer(this.motionVectorFBO.fbo);
     gl.deleteTexture(this.motionVectorFBO.texture);
+    for (const { fbo, texture } of this.cameraSeqFBOs) {
+      gl.deleteFramebuffer(fbo);
+      gl.deleteTexture(texture);
+    }
     gl.deleteBuffer(this.arrowVBO);
+    gl.deleteBuffer(this.digitVBO);
+    gl.deleteTexture(this.digitAtlasTexture);
+    gl.deleteTexture(this.lineAtlasTexture);
     gl.deleteBuffer(this.gridVBO);
     gl.deleteBuffer(this.quadVBO);
     gl.deleteProgram(this.arrowProgram.program);
     gl.deleteProgram(this.velocityProgram.program);
     gl.deleteProgram(this.diffuseProgram.program);
     gl.deleteProgram(this.motionDetectProgram.program);
+    gl.deleteProgram(this.cameraSeqProgram.program);
   }
 }

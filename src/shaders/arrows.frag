@@ -2,7 +2,11 @@ precision highp float;
 
 varying float v_speed;
 varying float v_angle;
-varying float v_proximity;
+varying vec2 v_digitUV;
+varying float v_digitIndex;
+
+uniform float u_renderMode;
+uniform sampler2D u_digitAtlas;
 
 const float PI = 3.14159265359;
 
@@ -18,5 +22,14 @@ void main() {
     float hue = (v_angle + PI) / (2.0 * PI);
     vec3 color = hsv2rgb(vec3(hue, 0.85, 0.95));
 
-    gl_FragColor = vec4(color, 1.0);
+    if (u_renderMode > 0.5) {
+        // Digit mode: sample atlas, use alpha as mask
+        vec4 texel = texture2D(u_digitAtlas, v_digitUV);
+        float alpha = texel.a;
+        if (alpha < 0.3) discard;
+        gl_FragColor = vec4(color, alpha);
+    } else {
+        // Arrow mode
+        gl_FragColor = vec4(color, 1.0);
+    }
 }
