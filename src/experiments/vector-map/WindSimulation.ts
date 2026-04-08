@@ -6,14 +6,15 @@ import {
   motionDetectFrag,
   velocityUpdateFrag,
   velocityUpdateVert,
-} from "../shaders";
+} from "./shaders";
 import { TriggerGrid } from "./TriggerGrid";
-
-interface ShaderProgram {
-  program: WebGLProgram;
-  uniforms: Record<string, WebGLUniformLocation | null>;
-  attributes: Record<string, number>;
-}
+import {
+  createProgram,
+  createFBO,
+  createQuadVBO,
+  PingPongFBOs,
+} from "../../lib/gl";
+import type { FBOHandle, ShaderProgram } from "../../lib/gl";
 
 export interface SimSettings {
   cameraStrength: number;
@@ -51,8 +52,7 @@ export class WindSimulation {
   private cameraSeqProgram!: ShaderProgram;
 
   // Velocity field ping-pong textures
-  private velocityFBOs: { fbo: WebGLFramebuffer; texture: WebGLTexture }[] = [];
-  private currentVelocity = 0;
+  private velocityFBOs!: PingPongFBOs;
 
   // Grid
   private gridCols = 64;
@@ -95,9 +95,8 @@ export class WindSimulation {
   // Camera motion detection
   private cameraTextures: WebGLTexture[] = [];
   private currentCameraTexture = 0;
-  private motionVectorFBO!: { fbo: WebGLFramebuffer; texture: WebGLTexture };
-  private cameraSeqFBOs: { fbo: WebGLFramebuffer; texture: WebGLTexture }[] =
-    [];
+  private motionVectorFBO!: FBOHandle;
+  private cameraSeqFBOs: FBOHandle[] = [];
   private currentCameraSeq = 0;
   private cameraSeqCounter = 0;
   private cameraActive = false;
@@ -137,7 +136,7 @@ export class WindSimulation {
   private init() {
     const gl = this.gl;
 
-    this.arrowProgram = this.createProgram(arrowsVert, arrowsFrag, {
+    this.arrowProgram = createProgram(gl, arrowsVert, arrowsFrag, {
       uniforms: [
         "u_resolution",
         "u_velocityField",
@@ -159,60 +158,48 @@ export class WindSimulation {
       attributes: ["a_position", "a_vertex"],
     });
 
-    this.velocityProgram = this.createProgram(
-      velocityUpdateVert,
-      velocityUpdateFrag,
-      {
-        uniforms: [
-          "u_prevVelocity",
-          "u_mousePos",
-          "u_mouseVel",
-          "u_mouseActive",
-          "u_decay",
-          "u_radius",
-          "u_dt",
-          "u_cameraMotion",
-          "u_cameraActive",
-          "u_cameraStrength",
-          "u_audioLevel",
-          "u_audioBoostMin",
-          "u_audioBoostMax",
-        ],
-        attributes: ["a_position"],
-      },
-    );
+    this.velocityProgram = createProgram(gl, velocityUpdateVert, velocityUpdateFrag, {
+      uniforms: [
+        "u_prevVelocity",
+        "u_mousePos",
+        "u_mouseVel",
+        "u_mouseActive",
+        "u_decay",
+        "u_radius",
+        "u_dt",
+        "u_cameraMotion",
+        "u_cameraActive",
+        "u_cameraStrength",
+        "u_audioLevel",
+        "u_audioBoostMin",
+        "u_audioBoostMax",
+      ],
+      attributes: ["a_position"],
+    });
 
-    this.diffuseProgram = this.createProgram(velocityUpdateVert, diffuseFrag, {
+    this.diffuseProgram = createProgram(gl, velocityUpdateVert, diffuseFrag, {
       uniforms: ["u_velocity", "u_texelSize", "u_diffusion"],
       attributes: ["a_position"],
     });
 
-    this.motionDetectProgram = this.createProgram(
-      velocityUpdateVert,
-      motionDetectFrag,
-      {
-        uniforms: ["u_currentFrame", "u_prevFrame"],
-        attributes: ["a_position"],
-      },
-    );
+    this.motionDetectProgram = createProgram(gl, velocityUpdateVert, motionDetectFrag, {
+      uniforms: ["u_currentFrame", "u_prevFrame"],
+      attributes: ["a_position"],
+    });
 
-    this.cameraSeqProgram = this.createProgram(
-      velocityUpdateVert,
-      cameraSeqUpdateFrag,
-      {
-        uniforms: [
-          "u_prevSeq",
-          "u_motionVec",
-          "u_seqCounterHigh",
-          "u_seqCounterLow",
-          "u_triggerDecay",
-          "u_motionThreshold",
-        ],
-        attributes: ["a_position"],
-      },
-    );
+    this.cameraSeqProgram = createProgram(gl, velocityUpdateVert, cameraSeqUpdateFrag, {
+      uniforms: [
+        "u_prevSeq",
+        "u_motionVec",
+        "u_seqCounterHigh",
+        "u_seqCounterLow",
+        "u_triggerDecay",
+        "u_motionThreshold",
+      ],
+      attributes: ["a_position"],
+    });
 
-    // Velocity FBOs
+    // Velocity FBOs (ping-pong)
     const initSize = this.fieldSize * this.fieldSize * 4;
     const initData = new Uint8Array(initSize);
     for (let i = 0; i < initSize; i += 4) {
@@ -221,11 +208,7 @@ export class WindSimulation {
       initData[i + 2] = 0;
       initData[i + 3] = 255;
     }
-    for (let i = 0; i < 2; i++) {
-      this.velocityFBOs.push(
-        this.createFBO(this.fieldSize, this.fieldSize, initData),
-      );
-    }
+    this.velocityFBOs = new PingPongFBOs(gl, this.fieldSize, this.fieldSize, initData);
 
     // Trigger map texture
     this.triggerMapTexture = gl.createTexture()!;
@@ -288,11 +271,11 @@ export class WindSimulation {
     }
 
     // Motion vector FBO (256x256 RGBA)
-    this.motionVectorFBO = this.createFBO(this.fieldSize, this.fieldSize);
+    this.motionVectorFBO = createFBO(gl, this.fieldSize, this.fieldSize);
 
     // Camera sequence ping-pong FBOs (256x256 RGBA)
     for (let i = 0; i < 2; i++) {
-      this.cameraSeqFBOs.push(this.createFBO(this.fieldSize, this.fieldSize));
+      this.cameraSeqFBOs.push(createFBO(gl, this.fieldSize, this.fieldSize));
     }
 
     this.createArrowGeometry();
@@ -301,13 +284,7 @@ export class WindSimulation {
     this.createLineAtlas();
     this.createGridPositions();
 
-    this.quadVBO = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      gl.STATIC_DRAW,
-    );
+    this.quadVBO = createQuadVBO(gl);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -452,99 +429,6 @@ export class WindSimulation {
     this.gridVBO = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gridVBO);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-  }
-
-  private createProgram(
-    vertSrc: string,
-    fragSrc: string,
-    schema: { uniforms: string[]; attributes: string[] },
-  ): ShaderProgram {
-    const gl = this.gl;
-    const vert = this.compileShader(gl.VERTEX_SHADER, vertSrc);
-    const frag = this.compileShader(gl.FRAGMENT_SHADER, fragSrc);
-    const program = gl.createProgram()!;
-    gl.attachShader(program, vert);
-    gl.attachShader(program, frag);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error("Program link error: " + gl.getProgramInfoLog(program));
-    }
-    const uniforms: Record<string, WebGLUniformLocation | null> = {};
-    for (const name of schema.uniforms)
-      uniforms[name] = gl.getUniformLocation(program, name);
-    const attributes: Record<string, number> = {};
-    for (const name of schema.attributes)
-      attributes[name] = gl.getAttribLocation(program, name);
-    return { program, uniforms, attributes };
-  }
-
-  private compileShader(type: number, source: string): WebGLShader {
-    const gl = this.gl;
-    const shader = gl.createShader(type)!;
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const info = gl.getShaderInfoLog(shader);
-      gl.deleteShader(shader);
-      throw new Error("Shader compile error: " + info);
-    }
-    return shader;
-  }
-
-  private createFBO(width: number, height: number, initData?: Uint8Array) {
-    const gl = this.gl;
-    const texture = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    if (initData) {
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        width,
-        height,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        initData,
-      );
-    } else {
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        width,
-        height,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        null,
-      );
-    }
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    const fbo = gl.createFramebuffer()!;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D,
-      texture,
-      0,
-    );
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return { fbo, texture };
-  }
-
-  private swapVelocity() {
-    this.currentVelocity = 1 - this.currentVelocity;
-  }
-  private get readVelocity() {
-    return this.velocityFBOs[this.currentVelocity];
-  }
-  private get writeVelocity() {
-    return this.velocityFBOs[1 - this.currentVelocity];
   }
 
   // --- Public API ---
@@ -805,13 +689,13 @@ export class WindSimulation {
     }
 
     // --- Step 1: Update velocity field ---
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.writeVelocity.fbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.velocityFBOs.write.fbo);
     gl.viewport(0, 0, this.fieldSize, this.fieldSize);
     gl.disable(gl.BLEND);
 
     gl.useProgram(this.velocityProgram.program);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.readVelocity.texture);
+    gl.bindTexture(gl.TEXTURE_2D, this.velocityFBOs.read.texture);
     gl.uniform1i(this.velocityProgram.uniforms.u_prevVelocity, 0);
 
     // Camera motion texture on unit 1
@@ -872,13 +756,13 @@ export class WindSimulation {
       0,
     );
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    this.swapVelocity();
+    this.velocityFBOs.swap();
 
     // --- Step 2: Diffuse velocity ---
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.writeVelocity.fbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.velocityFBOs.write.fbo);
     gl.useProgram(this.diffuseProgram.program);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.readVelocity.texture);
+    gl.bindTexture(gl.TEXTURE_2D, this.velocityFBOs.read.texture);
     gl.uniform1i(this.diffuseProgram.uniforms.u_velocity, 0);
     gl.uniform2f(
       this.diffuseProgram.uniforms.u_texelSize,
@@ -901,7 +785,7 @@ export class WindSimulation {
       0,
     );
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    this.swapVelocity();
+    this.velocityFBOs.swap();
 
     // --- Step 3: Render arrows ---
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -914,7 +798,7 @@ export class WindSimulation {
 
     // Texture unit 0: velocity field
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.readVelocity.texture);
+    gl.bindTexture(gl.TEXTURE_2D, this.velocityFBOs.read.texture);
     gl.uniform1i(this.arrowProgram.uniforms.u_velocityField, 0);
 
     // Texture unit 1: trigger map
@@ -1026,10 +910,7 @@ export class WindSimulation {
 
   destroy() {
     const gl = this.gl;
-    for (const { fbo, texture } of this.velocityFBOs) {
-      gl.deleteFramebuffer(fbo);
-      gl.deleteTexture(texture);
-    }
+    this.velocityFBOs.destroy(gl);
     gl.deleteTexture(this.triggerMapTexture);
     gl.deleteTexture(this.audioHistoryTexture);
     for (const tex of this.cameraTextures) gl.deleteTexture(tex);
