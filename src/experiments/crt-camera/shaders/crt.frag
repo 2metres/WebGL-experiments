@@ -293,8 +293,8 @@ void main() {
       float bandSize = max(2.0, 16.0 * u_scale);
       float bandY = floor(nCoord.y / bandSize);
       float bandHash = hash(vec2(bandY, floor(u_time * 12.0)));
-      if (bandHash > 0.85) {
-        float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 2.0;
+      if (bandHash > 0.7) {
+        float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 8.0;
         color = FromSrgb(texture2D(u_texture, v_uv + vec2(shift, 0.0)).rgb);
       }
       float n = hash(vec2(floor(nCoord.x / 4.0), bandY)) * 2.0 - 1.0;
