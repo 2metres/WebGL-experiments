@@ -12,6 +12,11 @@ export const experiments: ExperimentEntry[] = [
     label: "Vector Map",
     loader: () => import("./vector-map/VectorMap.svelte"),
   },
+  {
+    id: "crt-camera",
+    label: "CRT Camera",
+    loader: () => import("./crt-camera/CrtCamera.svelte"),
+  },
 ];
 
 export function getExperiment(id: string): ExperimentEntry | undefined {
