@@ -14,6 +14,7 @@ uniform float u_blur;         // horizontal blur (default -2.75)
 uniform float u_mask;         // shadow mask intensity (default 0.65)
 uniform float u_maskType;     // 0=shadow, 1=grille, 2=grille_lite, 3=none
 uniform float u_time;         // for future VHS effects
+uniform vec2 u_videoSize;     // native video dimensions (e.g. 640x480)
 
 // VHS effect uniforms
 uniform float u_chromatic;    // chromatic aberration strength (default 0.0, range 0-10)
@@ -42,7 +43,13 @@ vec3 ToSrgb(vec3 c) {
 }
 
 vec3 CrtsFetch(vec2 uv) {
-  return FromSrgb(texture2D(u_texture, uv.xy).rgb);
+  // Aspect-correct "cover" scaling: fill screen from 640x480 video
+  vec2 screenAspect = u_resolution / max(u_resolution.x, u_resolution.y);
+  vec2 videoAspect = u_videoSize / max(u_videoSize.x, u_videoSize.y);
+  vec2 scale = screenAspect / videoAspect;
+  float coverScale = max(scale.x, scale.y);
+  vec2 adjustedUV = (uv - 0.5) * (scale / coverScale) + 0.5;
+  return FromSrgb(texture2D(u_texture, adjustedUV).rgb);
 }
 
 float CrtsMax3F1(float a, float b, float c) {

@@ -61,6 +61,11 @@
     gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], s.trackingSpeed);
     gl.uniform1f(crtProgram.uniforms["u_trackingIntensity"], s.trackingIntensity);
 
+    const video = camera.videoElement;
+    const vw = video ? video.videoWidth || 640 : 640;
+    const vh = video ? video.videoHeight || 480 : 480;
+    gl.uniform2f(crtProgram.uniforms["u_videoSize"], vw, vh);
+
     drawQuad(gl, crtProgram, quadVBO);
   }
 
@@ -81,7 +86,7 @@
       uniforms: [
         "u_texture", "u_resolution", "u_scale", "u_warp",
         "u_minVin", "u_thin", "u_blur", "u_mask", "u_maskType", "u_time",
-        "u_chromatic", "u_noise", "u_trackingSpeed", "u_trackingIntensity",
+        "u_chromatic", "u_noise", "u_trackingSpeed", "u_trackingIntensity", "u_videoSize",
       ],
       attributes: ["a_position"],
     });
