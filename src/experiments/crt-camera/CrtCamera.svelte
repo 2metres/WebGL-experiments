@@ -81,8 +81,8 @@
     elapsedTime += dt;
     if (camera.ready) uploadCameraFrame();
     if (audio?.isActive) {
-      const hist = audio.updateHistory();
-      currentAudioLevel = hist[0] / 255;
+      audio.updateHistory();
+      currentAudioLevel = audio.level;
     }
     render();
   });

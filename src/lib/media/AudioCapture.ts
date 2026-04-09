@@ -5,6 +5,7 @@ export class AudioCapture {
   private freqData: Uint8Array<ArrayBuffer> = new Uint8Array(0);
   private _isActive = false;
   private prevLevel = 0;
+  private _level = 0;
 
   /** Rolling history of audio deltas — maps along the path */
   readonly historySize = 256;
@@ -13,6 +14,11 @@ export class AudioCapture {
 
   get isActive() {
     return this._isActive;
+  }
+
+  /** Current audio level (0-1), updated each frame via updateHistory() */
+  get level() {
+    return this._level;
   }
 
   async start(existingStream?: MediaStream): Promise<boolean> {
@@ -55,6 +61,7 @@ export class AudioCapture {
       sum += this.freqData[i];
     }
     const level = sum / (this.freqData.length * 255);
+    this._level = level;
     const delta = Math.max(0, level - this.prevLevel);
     this.prevLevel = level;
 
