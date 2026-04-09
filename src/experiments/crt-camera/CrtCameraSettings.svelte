@@ -9,6 +9,7 @@
   let blur = $state(settingsStore.getState().blur);
   let mask = $state(settingsStore.getState().mask);
   let maskType = $state(settingsStore.getState().maskType);
+  let antiMoire = $state(settingsStore.getState().antiMoire);
   let chromatic = $state(settingsStore.getState().chromatic);
   let noise = $state(settingsStore.getState().noise);
   let noiseShape = $state(settingsStore.getState().noiseShape);
@@ -27,6 +28,7 @@
   $effect(() => { settingsStore.getState().set("blur", blur); });
   $effect(() => { settingsStore.getState().set("mask", mask); });
   $effect(() => { settingsStore.getState().set("maskType", maskType); });
+  $effect(() => { settingsStore.getState().set("antiMoire", antiMoire); });
   $effect(() => { settingsStore.getState().set("chromatic", chromatic); });
   $effect(() => { settingsStore.getState().set("noise", noise); });
   $effect(() => { settingsStore.getState().set("noiseShape", noiseShape); });
@@ -47,6 +49,7 @@
     blur = DEFAULTS.blur;
     mask = DEFAULTS.mask;
     maskType = DEFAULTS.maskType;
+    antiMoire = DEFAULTS.antiMoire;
     chromatic = DEFAULTS.chromatic;
     noise = DEFAULTS.noise;
     noiseShape = DEFAULTS.noiseShape;
@@ -65,6 +68,10 @@
     <h3>CRT Display</h3>
     <RangeSlider label="Scanline Scale" bind:value={scale} min={0.1} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Scanline Thickness" bind:value={thin} min={0.5} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <label class="checkbox-row">
+      <input type="checkbox" bind:checked={antiMoire} />
+      Anti-Moiré
+    </label>
     <RangeSlider label="Blur" bind:value={blur} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
     <RangeSlider label="Mask Intensity" bind:value={mask} min={0.0} max={1.5} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <div class="toggle-label">Mask Type</div>

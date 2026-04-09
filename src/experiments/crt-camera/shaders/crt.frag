@@ -23,6 +23,7 @@ uniform float u_trackingSpeed; // tracking line scroll speed (default 0.0, range
 uniform float u_trackingIntensity; // tracking line strength (default 0.0, range 0-1)
 uniform float u_trackingBlend;    // 0=subtract, 1=multiply, 2=add, 3=screen
 uniform float u_noiseShape;   // 0=snow, 1=rgb, 2=fine
+uniform float u_antiMoire;    // 0=off, 1=on
 uniform float u_trackingScale;    // tracking line width (0.01-1.0)
 uniform float u_trackingGlitch; // tracking glitch intensity (0=off, 0-1)
 uniform float u_trackingGlitchScale; // number of vertical bands for glitch
@@ -185,6 +186,14 @@ vec3 CrtsFilter(
   float hlf = 0.5;
   float scanA = cos(min(0.5, off * thin) * pi2) * hlf + hlf;
   float scanB = cos(min(0.5, (-off) * thin + thin) * pi2) * hlf + hlf;
+
+  // Anti-moiré: fade scanlines toward flat when they're too fine for the pixel grid
+  if (u_antiMoire > 0.5) {
+    float scanlinePixelRatio = halfInputSize.y * 2.0 / u_resolution.y;
+    float fade = smoothstep(0.5, 1.5, scanlinePixelRatio);
+    scanA = mix(1.0, scanA, fade);
+    scanB = mix(1.0, scanB, fade);
+  }
 
   // Horizontal kernel: gaussian filter
   float off0 = pos.x - x0;

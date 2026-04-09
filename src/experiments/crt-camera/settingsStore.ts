@@ -8,6 +8,7 @@ export interface CrtSettings {
   blur: number;
   mask: number;
   maskType: number;
+  antiMoire: boolean;
   chromatic: number;
   noise: number;
   noiseShape: number;
@@ -28,6 +29,7 @@ export const DEFAULTS: CrtSettings = {
   blur: 0,
   mask: 0.07,
   maskType: 2,
+  antiMoire: false,
   chromatic: 10,
   noise: 0.24,
   noiseShape: 0,

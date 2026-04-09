@@ -58,6 +58,7 @@
     gl.uniform1f(crtProgram.uniforms["u_mask"], s.mask);
     gl.uniform1f(crtProgram.uniforms["u_maskType"], s.maskType);
     gl.uniform1f(crtProgram.uniforms["u_time"], elapsedTime);
+    gl.uniform1f(crtProgram.uniforms["u_antiMoire"], s.antiMoire ? 1.0 : 0.0);
     gl.uniform1f(crtProgram.uniforms["u_chromatic"], s.chromatic);
     gl.uniform1f(crtProgram.uniforms["u_noise"], s.noise);
     gl.uniform1f(crtProgram.uniforms["u_noiseShape"], s.noiseShape);
@@ -98,7 +99,7 @@
       uniforms: [
         "u_texture", "u_resolution", "u_scale", "u_warp",
         "u_minVin", "u_thin", "u_blur", "u_mask", "u_maskType", "u_time",
-        "u_chromatic", "u_noise", "u_noiseShape", "u_trackingScale", "u_trackingGlitch", "u_trackingGlitchScale", "u_trackingSpeed", "u_trackingIntensity", "u_trackingBlend", "u_videoSize",
+        "u_antiMoire", "u_chromatic", "u_noise", "u_noiseShape", "u_trackingScale", "u_trackingGlitch", "u_trackingGlitchScale", "u_trackingSpeed", "u_trackingIntensity", "u_trackingBlend", "u_videoSize",
       ],
       attributes: ["a_position"],
     });
