@@ -235,8 +235,9 @@ void main() {
   // Apply tracking line UV distortion before sampling
   vec2 uv = v_uv;
   float track = trackingLine(uv, u_time, u_trackingSpeed);
-  // Shift UV horizontally near tracking line
-  uv.x += track * 0.01 * u_trackingIntensity;
+  // Shift UV outward from center near tracking line
+  float xDir = sign(uv.x - 0.5);
+  uv.x += xDir * track * 0.01 * u_trackingIntensity;
 
   // Recalculate fragCoord from potentially distorted UV
   fragCoord = uv * u_resolution;
