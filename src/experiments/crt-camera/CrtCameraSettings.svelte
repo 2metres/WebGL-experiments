@@ -95,7 +95,7 @@
 
   <div class="section">
     <h3>VHS Effects</h3>
-    <RangeSlider label="Chromatic Aberration" bind:value={chromatic} min={0} max={20} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Chromatic Aberration" bind:value={chromatic} min={0} max={100} step={0.1} formatValue={(v) => v.toFixed(1)} />
     <RangeSlider label="Static Noise" bind:value={noise} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <div class="toggle-label">Noise Shape</div>
     <div class="toggle-group">
