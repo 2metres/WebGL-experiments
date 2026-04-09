@@ -82,7 +82,7 @@
       <button class:active={noiseShape === 3} onclick={() => noiseShape = 3}>Fine</button>
     </div>
     <RangeSlider label="Tracking Speed" bind:value={trackingSpeed} min={0} max={5} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Tracking Intensity" bind:value={trackingIntensity} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Tracking Intensity" bind:value={trackingIntensity} min={0} max={3} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <label class="checkbox-row">
       <input type="checkbox" bind:checked={audioReactive} />
       Audio-Reactive Tracking
