@@ -2,17 +2,22 @@
   import { onMount } from "svelte";
   import { CanvasContainer, createAnimationLoop } from "../../lib/canvas";
   import { CameraCapture } from "../../lib/media";
+  import { createProgram, createQuadVBO, drawQuad } from "../../lib/gl";
   import { ControlBar } from "../../lib/ui";
+  import { crtFrag, fullscreenVert } from "./shaders";
+  import type { ShaderProgram } from "../../lib/gl";
 
   let camera: CameraCapture;
   let canvas: HTMLCanvasElement;
   let gl: WebGLRenderingContext;
   let cameraTexture: WebGLTexture | null = null;
+  let crtProgram: ShaderProgram;
+  let quadVBO: WebGLBuffer;
+  let elapsedTime = 0;
 
   function initCameraTexture(): WebGLTexture {
     const tex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    // Initialize with a 1x1 black pixel until camera is ready
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
       new Uint8Array([0, 0, 0, 255]));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -29,10 +34,35 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, camera.videoElement);
   }
 
-  const loop = createAnimationLoop((_dt) => {
-    if (!gl || !camera.ready) return;
-    uploadCameraFrame();
-    // TODO: render fullscreen quad with CRT shader using cameraTexture
+  function render() {
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.useProgram(crtProgram.program);
+
+    // Bind webcam texture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, cameraTexture);
+    gl.uniform1i(crtProgram.uniforms["u_texture"], 0);
+
+    // Set uniforms
+    gl.uniform2f(crtProgram.uniforms["u_resolution"],
+      gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.uniform1f(crtProgram.uniforms["u_scale"], 0.33333);
+    gl.uniform1f(crtProgram.uniforms["u_warp"], 1.0);
+    gl.uniform1f(crtProgram.uniforms["u_minVin"], 0.5);
+    gl.uniform1f(crtProgram.uniforms["u_thin"], 0.75);
+    gl.uniform1f(crtProgram.uniforms["u_blur"], -2.75);
+    gl.uniform1f(crtProgram.uniforms["u_mask"], 0.65);
+    gl.uniform1f(crtProgram.uniforms["u_maskType"], 0.0);
+    gl.uniform1f(crtProgram.uniforms["u_time"], elapsedTime);
+
+    drawQuad(gl, crtProgram, quadVBO);
+  }
+
+  const loop = createAnimationLoop((dt) => {
+    if (!gl) return;
+    elapsedTime += dt;
+    if (camera.ready) uploadCameraFrame();
+    render();
   });
 
   function handleCanvas(c: HTMLCanvasElement) {
@@ -40,6 +70,15 @@
     const ctx = c.getContext("webgl", { alpha: false });
     if (!ctx) throw new Error("WebGL not supported");
     gl = ctx;
+
+    crtProgram = createProgram(gl, fullscreenVert, crtFrag, {
+      uniforms: [
+        "u_texture", "u_resolution", "u_scale", "u_warp",
+        "u_minVin", "u_thin", "u_blur", "u_mask", "u_maskType", "u_time",
+      ],
+      attributes: ["a_position"],
+    });
+    quadVBO = createQuadVBO(gl);
     cameraTexture = initCameraTexture();
     camera = new CameraCapture();
     loop.start();
