@@ -66,7 +66,7 @@
 
   <div class="section">
     <h3>Tube</h3>
-    <RangeSlider label="Warp" bind:value={warp} min={0.0} max={8.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Warp" bind:value={warp} min={0.0} max={16.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Vignette" bind:value={minVin} min={0.0} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
   </div>
 
