@@ -20,7 +20,7 @@
   let trackingIntensity = $state(settingsStore.getState().trackingIntensity);
   let trackingBlend = $state(settingsStore.getState().trackingBlend);
   let glow = $state(settingsStore.getState().glow);
-  let audioReactive = $state(settingsStore.getState().audioReactive);
+  let ar = $state<Record<string, number>>({...settingsStore.getState().audioReactive});
 
   $effect(() => { settingsStore.getState().set("scale", scale); });
   $effect(() => { settingsStore.getState().set("warp", warp); });
@@ -40,7 +40,7 @@
   $effect(() => { settingsStore.getState().set("trackingIntensity", trackingIntensity); });
   $effect(() => { settingsStore.getState().set("trackingBlend", trackingBlend); });
   $effect(() => { settingsStore.getState().set("glow", glow); });
-  $effect(() => { settingsStore.getState().set("audioReactive", audioReactive); });
+  $effect(() => { settingsStore.getState().set("audioReactive", {...ar}); });
 
   function resetDefaults() {
     settingsStore.getState().resetDefaults();
@@ -62,22 +62,22 @@
     trackingIntensity = DEFAULTS.trackingIntensity;
     trackingBlend = DEFAULTS.trackingBlend;
     glow = DEFAULTS.glow;
-    audioReactive = DEFAULTS.audioReactive;
+    ar = {...DEFAULTS.audioReactive};
   }
 </script>
 
 <SettingsPanel onmousedown={(e) => e.stopPropagation()}>
   <div class="section">
     <h3>CRT Display</h3>
-    <RangeSlider label="Scanline Scale" bind:value={scale} min={0.1} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Scanline Thickness" bind:value={thin} min={0.5} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Scanline Scale" bind:value={scale} bind:audioMode={ar.scale} min={0.1} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Scanline Thickness" bind:value={thin} bind:audioMode={ar.thin} min={0.5} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <label class="checkbox-row">
       <input type="checkbox" bind:checked={antiMoire} />
       Anti-Moiré
     </label>
-    <RangeSlider label="Blur" bind:value={blur} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Glow" bind:value={glow} min={0} max={2} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Mask Intensity" bind:value={mask} min={0.0} max={1.5} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Blur" bind:value={blur} bind:audioMode={ar.blur} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Glow" bind:value={glow} bind:audioMode={ar.glow} min={0} max={2} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Mask Intensity" bind:value={mask} bind:audioMode={ar.mask} min={0.0} max={1.5} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <div class="toggle-label">Mask Type</div>
     <div class="toggle-group">
       <button class:active={maskType === 0} onclick={() => maskType = 0}>Shadow</button>
@@ -89,14 +89,14 @@
 
   <div class="section">
     <h3>Tube</h3>
-    <RangeSlider label="Warp" bind:value={warp} min={0.0} max={32.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Vignette" bind:value={minVin} min={0.0} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Warp" bind:value={warp} bind:audioMode={ar.warp} min={0.0} max={32.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Vignette" bind:value={minVin} bind:audioMode={ar.minVin} min={0.0} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
   </div>
 
   <div class="section">
     <h3>VHS Effects</h3>
-    <RangeSlider label="Chromatic Aberration" bind:value={chromatic} min={0} max={100} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Static Noise" bind:value={noise} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Chromatic Aberration" bind:value={chromatic} bind:audioMode={ar.chromatic} min={0} max={100} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Static Noise" bind:value={noise} bind:audioMode={ar.noise} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <div class="toggle-label">Noise Shape</div>
     <div class="toggle-group">
       <button class:active={noiseShape === 0} onclick={() => noiseShape = 0}>Snow</button>
@@ -108,11 +108,11 @@
 
   <div class="section">
     <h3>Tracking</h3>
-    <RangeSlider label="Speed" bind:value={trackingSpeed} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Intensity" bind:value={trackingIntensity} min={0} max={10} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Scale" bind:value={trackingScale} min={0.01} max={2.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Glitch" bind:value={trackingGlitch} min={0} max={2} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Glitch Scale" bind:value={trackingGlitchScale} min={1} max={200} step={1} formatValue={(v) => v.toFixed(0)} />
+    <RangeSlider label="Speed" bind:value={trackingSpeed} bind:audioMode={ar.trackingSpeed} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Intensity" bind:value={trackingIntensity} bind:audioMode={ar.trackingIntensity} min={0} max={10} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Scale" bind:value={trackingScale} bind:audioMode={ar.trackingScale} min={0.01} max={2.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Glitch" bind:value={trackingGlitch} bind:audioMode={ar.trackingGlitch} min={0} max={2} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Glitch Scale" bind:value={trackingGlitchScale} bind:audioMode={ar.trackingGlitchScale} min={1} max={200} step={1} formatValue={(v) => v.toFixed(0)} />
     <label class="select-row">
       Blend
       <select bind:value={trackingBlend}>
@@ -124,10 +124,6 @@
         <option value={5}>Dodge</option>
         <option value={6}>Burn</option>
       </select>
-    </label>
-    <label class="checkbox-row">
-      <input type="checkbox" bind:checked={audioReactive} />
-      Audio-Reactive
     </label>
   </div>
 
