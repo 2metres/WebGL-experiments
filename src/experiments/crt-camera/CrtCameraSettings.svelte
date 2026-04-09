@@ -1,6 +1,7 @@
 <script lang="ts">
   import { RangeSlider, SettingsPanel } from "../../lib/ui";
-  import { settingsStore, DEFAULTS } from "./settingsStore";
+  import { settingsStore, DEFAULTS, loadPresets, savePreset, deletePreset } from "./settingsStore";
+  import type { CrtSettings } from "./settingsStore";
 
   let scale = $state(settingsStore.getState().scale);
   let warp = $state(settingsStore.getState().warp);
@@ -68,6 +69,49 @@
     glow = DEFAULTS.glow;
     ar = {...DEFAULTS.audioReactive};
   }
+
+  let presetNames = $state<string[]>(Object.keys(loadPresets()));
+  let savingPreset = $state(false);
+  let presetName = $state("");
+
+  function currentSettings(): CrtSettings {
+    return {
+      scale, warp, minVin, thin, blur, mask, maskType, antiMoire,
+      chromatic, noise, noiseShape, trackingScale, trackingGlitch,
+      trackingGlitchScale, trackingSpeed, trackingIntensity, trackingBlend,
+      glow, audioReactive: {...ar},
+    };
+  }
+
+  function handleSavePreset() {
+    const name = presetName.trim();
+    if (!name) return;
+    savePreset(name, currentSettings());
+    presetNames = Object.keys(loadPresets());
+    presetName = "";
+    savingPreset = false;
+  }
+
+  function applySettings(s: CrtSettings) {
+    scale = s.scale; warp = s.warp; minVin = s.minVin; thin = s.thin;
+    blur = s.blur; mask = s.mask; maskType = s.maskType; antiMoire = s.antiMoire;
+    chromatic = s.chromatic; noise = s.noise; noiseShape = s.noiseShape;
+    trackingScale = s.trackingScale; trackingGlitch = s.trackingGlitch;
+    trackingGlitchScale = s.trackingGlitchScale; trackingSpeed = s.trackingSpeed;
+    trackingIntensity = s.trackingIntensity; trackingBlend = s.trackingBlend;
+    glow = s.glow;
+    ar = {...DEFAULTS.audioReactive, ...(s.audioReactive ?? {})};
+  }
+
+  function handleLoadPreset(name: string) {
+    const presets = loadPresets();
+    if (presets[name]) applySettings(presets[name]);
+  }
+
+  function handleDeletePreset(name: string) {
+    deletePreset(name);
+    presetNames = Object.keys(loadPresets());
+  }
 </script>
 
 <SettingsPanel onmousedown={(e) => e.stopPropagation()}>
@@ -129,6 +173,34 @@
         <option value={6}>Burn</option>
       </select>
     </label>
+  </div>
+
+  <div class="section">
+    <h3>Presets</h3>
+    {#if presetNames.length > 0}
+      <div class="preset-list">
+        {#each presetNames as name}
+          <div class="preset-row">
+            <button class="preset-load" onclick={() => handleLoadPreset(name)}>{name}</button>
+            <button class="preset-delete" onclick={() => handleDeletePreset(name)} title="Delete">&times;</button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+    {#if savingPreset}
+      <div class="preset-save-row">
+        <input
+          class="preset-input"
+          type="text"
+          placeholder="Preset name…"
+          bind:value={presetName}
+          onkeydown={(e: KeyboardEvent) => { if (e.key === "Enter") handleSavePreset(); if (e.key === "Escape") savingPreset = false; }}
+        />
+        <button class="preset-confirm" onclick={handleSavePreset}>Save</button>
+      </div>
+    {:else}
+      <button class="save-btn" onclick={() => savingPreset = true}>Save Preset</button>
+    {/if}
   </div>
 
   <div class="section">
@@ -208,6 +280,87 @@
     padding: 4px 8px;
     font-size: 11px;
     cursor: pointer;
+  }
+  .preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+  .preset-row {
+    display: flex;
+    gap: 2px;
+  }
+  .preset-load {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 11px;
+    text-align: left;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-load:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+  .preset-delete {
+    width: 28px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-delete:hover {
+    color: rgba(255, 120, 120, 0.9);
+    background: rgba(255, 120, 120, 0.1);
+  }
+  .preset-save-row {
+    display: flex;
+    gap: 4px;
+  }
+  .preset-input {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 11px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    outline: none;
+  }
+  .preset-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+  }
+  .preset-confirm {
+    padding: 5px 12px;
+    font-size: 11px;
+    color: rgba(120, 200, 255, 0.9);
+    border: 1px solid rgba(120, 200, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(120, 200, 255, 0.1);
+    cursor: pointer;
+  }
+  .save-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 12px;
+    color: rgba(120, 200, 255, 0.8);
+    border: 1px solid rgba(120, 200, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+  }
+  .save-btn:hover {
+    background: rgba(120, 200, 255, 0.12);
+    color: rgba(140, 210, 255, 1);
   }
   .reset-btn {
     width: 100%;

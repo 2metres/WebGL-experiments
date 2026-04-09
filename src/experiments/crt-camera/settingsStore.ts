@@ -51,3 +51,23 @@ export const DEFAULTS: CrtSettings = {
 };
 
 export const settingsStore = createPersistedStore<CrtSettings>("crt-camera:settings", DEFAULTS);
+
+const PRESETS_KEY = "crt-camera:presets";
+
+export function loadPresets(): Record<string, CrtSettings> {
+  try {
+    return JSON.parse(localStorage.getItem(PRESETS_KEY) || "{}");
+  } catch { return {}; }
+}
+
+export function savePreset(name: string, settings: CrtSettings) {
+  const presets = loadPresets();
+  presets[name] = settings;
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+}
+
+export function deletePreset(name: string) {
+  const presets = loadPresets();
+  delete presets[name];
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+}
