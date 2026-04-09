@@ -1,5 +1,6 @@
 import { mount } from "svelte";
 
+import "virtual:uno.css";
 import "./app.css";
 import Shell from "./Shell.svelte";
 
