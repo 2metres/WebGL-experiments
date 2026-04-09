@@ -364,8 +364,6 @@ void main() {
     color = 1.0 - min((1.0 - color) / max(t + 0.001, 0.001), vec3(1.0)); // 6: burn
   }
 
-  color *= warpEdge;
-
   // Post-process vignette
   if (u_minVin < 0.99) {
     vec2 vigUV = v_uv * 2.0 - 1.0;
@@ -374,7 +372,7 @@ void main() {
     color -= vig * (1.0 - u_minVin);
   }
 
-  // Phosphor glow: bloom added after vignette + warp so it bleeds through darkened edges
+  // Phosphor glow: bloom after vignette, modulated by scanlines, clipped by warpEdge
   if (u_glow > 0.0) {
     vec2 px = 1.0 / u_resolution;
     float r = 3.0;
@@ -388,8 +386,14 @@ void main() {
     bloom += texture2D(u_texture, uv + vec2( 0,  r) * px).rgb;
     bloom += texture2D(u_texture, uv + vec2( r,  r) * px).rgb;
     bloom /= 8.0;
+    // Modulate bloom by scanline pattern so glow respects the line structure
+    float scanMod = cos(min(0.5, (pos.y - floor(pos.y)) * thin) * 6.28318) * 0.5 + 0.5;
+    bloom *= scanMod;
+    bloom *= CrtsMask(ipos, mask);
     color += bloom * u_glow;
   }
+
+  color *= warpEdge;
 
   gl_FragColor = vec4(ToSrgb(max(color, vec3(0.0))), 1.0);
 }
