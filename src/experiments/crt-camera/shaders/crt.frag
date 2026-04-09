@@ -261,6 +261,12 @@ void main() {
     float glitchSeed = floor(u_time * 15.0);
     float bandY = floor(uv.y * u_trackingGlitchScale);
     float jitter = (hash(vec2(bandY, glitchSeed)) * 2.0 - 1.0) * u_trackingGlitch * 0.05;
+    // Static noise roughens the glitch band edges
+    if (u_noise > 0.0) {
+      float noiseSeed = floor(u_time * 30.0);
+      float edgeNoise = hash(vec2(floor(uv.y * u_resolution.y), noiseSeed)) * 2.0 - 1.0;
+      jitter += edgeNoise * u_noise * u_trackingGlitch * 0.02;
+    }
     uv.x += jitter * track;
   }
 
