@@ -295,10 +295,10 @@ void main() {
       float bandHash = hash(vec2(bandY, floor(u_time * u_trackingSpeed * 7.0)));
       if (bandHash > 0.7) {
         float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 8.0;
-        vec3 glitchColor = FromSrgb(texture2D(u_texture, v_uv + vec2(shift, 0.0)).rgb);
-        // Invert mask on glitch bands: bright where mask is dark
-        vec3 invMask = 1.0 - CrtsMask(fragCoord, u_mask) + 0.5;
-        color = glitchColor * invMask;
+        // Undo the original mask, re-apply with shifted coordinates
+        vec3 origMask = CrtsMask(fragCoord, u_mask);
+        vec3 glitchedMask = CrtsMask(fragCoord + vec2(shift * u_resolution.x, 0.0), u_mask);
+        color = color / max(origMask, vec3(0.01)) * glitchedMask;
       }
       float n = hash(vec2(floor(nCoord.x / 4.0), bandY)) * 2.0 - 1.0;
       color += vec3(n) * noiseAmt * 0.3;
