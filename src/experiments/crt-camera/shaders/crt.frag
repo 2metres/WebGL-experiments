@@ -245,12 +245,12 @@ void main() {
   float xOff = uv.x - 0.5;
   uv.x -= xOff * track * 0.02 * u_trackingIntensity;
 
-  // Tracking glitch: vertical jitter per horizontal band
+  // Tracking glitch: horizontal jitter per vertical band
   if (u_trackingGlitch > 0.0) {
     float glitchSeed = floor(u_time * 15.0);
-    float bandX = floor(uv.x * u_trackingGlitchScale);
-    float jitter = (hash(vec2(bandX, glitchSeed)) * 2.0 - 1.0) * u_trackingGlitch * 0.05;
-    uv.y += jitter * track;
+    float bandY = floor(uv.y * u_trackingGlitchScale);
+    float jitter = (hash(vec2(bandY, glitchSeed)) * 2.0 - 1.0) * u_trackingGlitch * 0.05;
+    uv.x += jitter * track;
   }
 
   // Recalculate fragCoord from potentially distorted UV
