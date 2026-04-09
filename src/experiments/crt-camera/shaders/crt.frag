@@ -308,8 +308,8 @@ void main() {
     color.b = mix(color.b, FromSrgb1(b) * color.b / max(color.b, 0.001), 0.5);
   }
 
-  // Static noise (shape modes)
-  if (u_noise > 0.0) {
+  // Static noise (shape modes; 3=none)
+  if (u_noise > 0.0 && u_noiseShape < 2.5) {
     float noiseAmt = u_noise * 0.3;
     vec2 nCoord = fragCoord + fract(u_time * 43.758);
 
