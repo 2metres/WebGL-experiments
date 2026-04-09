@@ -13,6 +13,7 @@
   let noise = $state(settingsStore.getState().noise);
   let noiseShape = $state(settingsStore.getState().noiseShape);
   let trackingGlitch = $state(settingsStore.getState().trackingGlitch);
+  let trackingGlitchScale = $state(settingsStore.getState().trackingGlitchScale);
   let trackingSpeed = $state(settingsStore.getState().trackingSpeed);
   let trackingIntensity = $state(settingsStore.getState().trackingIntensity);
   let trackingBlend = $state(settingsStore.getState().trackingBlend);
@@ -29,6 +30,7 @@
   $effect(() => { settingsStore.getState().set("noise", noise); });
   $effect(() => { settingsStore.getState().set("noiseShape", noiseShape); });
   $effect(() => { settingsStore.getState().set("trackingGlitch", trackingGlitch); });
+  $effect(() => { settingsStore.getState().set("trackingGlitchScale", trackingGlitchScale); });
   $effect(() => { settingsStore.getState().set("trackingSpeed", trackingSpeed); });
   $effect(() => { settingsStore.getState().set("trackingIntensity", trackingIntensity); });
   $effect(() => { settingsStore.getState().set("trackingBlend", trackingBlend); });
@@ -47,6 +49,7 @@
     noise = DEFAULTS.noise;
     noiseShape = DEFAULTS.noiseShape;
     trackingGlitch = DEFAULTS.trackingGlitch;
+    trackingGlitchScale = DEFAULTS.trackingGlitchScale;
     trackingSpeed = DEFAULTS.trackingSpeed;
     trackingIntensity = DEFAULTS.trackingIntensity;
     trackingBlend = DEFAULTS.trackingBlend;
@@ -86,10 +89,15 @@
       <button class:active={noiseShape === 1} onclick={() => noiseShape = 1}>RGB</button>
       <button class:active={noiseShape === 2} onclick={() => noiseShape = 2}>Fine</button>
     </div>
-    <RangeSlider label="Tracking Speed" bind:value={trackingSpeed} min={0} max={5} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Tracking Intensity" bind:value={trackingIntensity} min={0} max={3} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <RangeSlider label="Tracking Glitch" bind:value={trackingGlitch} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
-    <div class="toggle-label">Tracking Blend</div>
+  </div>
+
+  <div class="section">
+    <h3>Tracking</h3>
+    <RangeSlider label="Speed" bind:value={trackingSpeed} min={0} max={5} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Intensity" bind:value={trackingIntensity} min={0} max={3} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Glitch" bind:value={trackingGlitch} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Glitch Scale" bind:value={trackingGlitchScale} min={1} max={100} step={1} formatValue={(v) => v.toFixed(0)} />
+    <div class="toggle-label">Blend</div>
     <div class="toggle-group">
       <button class:active={trackingBlend === 0} onclick={() => trackingBlend = 0}>Subtract</button>
       <button class:active={trackingBlend === 1} onclick={() => trackingBlend = 1}>Multiply</button>
@@ -101,7 +109,7 @@
     </div>
     <label class="checkbox-row">
       <input type="checkbox" bind:checked={audioReactive} />
-      Audio-Reactive Tracking
+      Audio-Reactive
     </label>
   </div>
 

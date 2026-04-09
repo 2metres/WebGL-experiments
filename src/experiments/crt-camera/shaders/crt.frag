@@ -23,7 +23,8 @@ uniform float u_trackingSpeed; // tracking line scroll speed (default 0.0, range
 uniform float u_trackingIntensity; // tracking line strength (default 0.0, range 0-1)
 uniform float u_trackingBlend;    // 0=subtract, 1=multiply, 2=add, 3=screen
 uniform float u_noiseShape;   // 0=snow, 1=rgb, 2=fine
-uniform float u_trackingGlitch; // scanline irregularity (0=off, 0-1)
+uniform float u_trackingGlitch; // tracking glitch intensity (0=off, 0-1)
+uniform float u_trackingGlitchScale; // number of vertical bands for glitch
 
 varying vec2 v_uv;
 
@@ -245,7 +246,7 @@ void main() {
   // Tracking glitch: vertical jitter per horizontal band
   if (u_trackingGlitch > 0.0) {
     float glitchSeed = floor(u_time * 15.0);
-    float bandX = floor(uv.x * 20.0);
+    float bandX = floor(uv.x * u_trackingGlitchScale);
     float jitter = (hash(vec2(bandX, glitchSeed)) * 2.0 - 1.0) * u_trackingGlitch * 0.05;
     uv.y += jitter * track;
   }
