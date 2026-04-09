@@ -23,6 +23,7 @@ uniform float u_trackingSpeed; // tracking line scroll speed (default 0.0, range
 uniform float u_trackingIntensity; // tracking line strength (default 0.0, range 0-1)
 uniform float u_trackingBlend;    // 0=subtract, 1=multiply, 2=add, 3=screen
 uniform float u_noiseShape;   // 0=snow, 1=rgb, 2=fine
+uniform float u_trackingScale;    // tracking line width (0.01-1.0)
 uniform float u_trackingGlitch; // tracking glitch intensity (0=off, 0-1)
 uniform float u_trackingGlitchScale; // number of vertical bands for glitch
 
@@ -224,10 +225,11 @@ float trackingLine(vec2 uv, float time, float speed) {
   if (speed <= 0.0) return 0.0;
   float linePos = fract(time * speed * 0.1);
   float dist = abs(uv.y - linePos);
-  // Main thick band
-  float line = smoothstep(0.05, 0.0, dist);
-  // Slight UV distortion near the band
-  line += smoothstep(0.1, 0.02, dist) * 0.3;
+  float s = u_trackingScale;
+  // Main thick band (scales with trackingScale)
+  float line = smoothstep(s, 0.0, dist);
+  // Fringe area (2x the main band width)
+  line += smoothstep(s * 2.0, s * 0.4, dist) * 0.3;
   return line;
 }
 
