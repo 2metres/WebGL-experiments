@@ -11,6 +11,7 @@ export interface CrtSettings {
   chromatic: number;
   noise: number;
   noiseShape: number;
+  scanlineGlitch: number;
   trackingSpeed: number;
   trackingIntensity: number;
   trackingBlend: number;
@@ -28,6 +29,7 @@ export const DEFAULTS: CrtSettings = {
   chromatic: 0.1,
   noise: 0.05,
   noiseShape: 0,
+  scanlineGlitch: 0,
   trackingSpeed: 1.7,
   trackingIntensity: 0.13,
   trackingBlend: 0,

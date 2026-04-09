@@ -22,7 +22,8 @@ uniform float u_noise;        // static noise amount (default 0.0, range 0-1)
 uniform float u_trackingSpeed; // tracking line scroll speed (default 0.0, range 0-5)
 uniform float u_trackingIntensity; // tracking line strength (default 0.0, range 0-1)
 uniform float u_trackingBlend;    // 0=subtract, 1=multiply, 2=add, 3=screen
-uniform float u_noiseShape;   // 0=snow, 1=glitch, 2=rgb, 3=fine
+uniform float u_noiseShape;   // 0=snow, 1=rgb, 2=fine
+uniform float u_scanlineGlitch; // scanline irregularity (0=off, 0-1)
 
 varying vec2 v_uv;
 
@@ -148,6 +149,12 @@ vec3 CrtsFilter(
 
   // Snap to center of first scanline
   float y0 = floor(pos.y - 0.5) + 0.5;
+  // Scanline glitch: jitter each scanline's vertical position
+  if (u_scanlineGlitch > 0.0) {
+    float glitchSeed = floor(u_time * 15.0);
+    float jitter = (hash(vec2(y0, glitchSeed)) * 2.0 - 1.0) * u_scanlineGlitch * 2.0;
+    y0 += jitter;
+  }
   // Snap to center of one of four pixels
   float x0 = floor(pos.x - 1.5) + 0.5;
 
@@ -289,20 +296,6 @@ void main() {
       float n = hash(blockCoord + ts * vec2(127.1, 311.7)) * 2.0 - 1.0;
       color += vec3(n) * noiseAmt;
     } else if (u_noiseShape < 1.5) {
-      // Glitch: horizontal blocky bands (height matches scanline scale)
-      float bandSize = max(2.0, 16.0 * u_scale);
-      float bandY = floor(nCoord.y / bandSize);
-      float bandHash = hash(vec2(bandY, floor(u_time * u_trackingSpeed * 7.0)));
-      if (bandHash > 0.7) {
-        float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 8.0;
-        // Undo the original mask, re-apply with shifted coordinates
-        vec3 origMask = CrtsMask(fragCoord, u_mask);
-        vec3 glitchedMask = CrtsMask(fragCoord + vec2(shift * u_resolution.x, 0.0), u_mask);
-        color = color / max(origMask, vec3(0.01)) * glitchedMask;
-      }
-      float n = hash(vec2(floor(nCoord.x / 4.0), bandY) + floor(u_time * 30.0) * vec2(127.1, 311.7)) * 2.0 - 1.0;
-      color += vec3(n) * noiseAmt * 0.3;
-    } else if (u_noiseShape < 2.5) {
       // RGB: per-channel color noise (4x4 blocks)
       vec2 blockCoord = floor(nCoord / 4.0);
       float ts = floor(u_time * 30.0);
