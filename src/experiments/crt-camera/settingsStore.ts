@@ -10,6 +10,7 @@ export interface CrtSettings {
   maskType: number;
   chromatic: number;
   noise: number;
+  noiseShape: number;
   trackingSpeed: number;
   trackingIntensity: number;
 }
@@ -24,6 +25,7 @@ export const DEFAULTS: CrtSettings = {
   maskType: 2,
   chromatic: 0.1,
   noise: 0.05,
+  noiseShape: 0,
   trackingSpeed: 1.7,
   trackingIntensity: 0.13,
 };

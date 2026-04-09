@@ -21,6 +21,7 @@ uniform float u_chromatic;    // chromatic aberration strength (default 0.0, ran
 uniform float u_noise;        // static noise amount (default 0.0, range 0-1)
 uniform float u_trackingSpeed; // tracking line scroll speed (default 0.0, range 0-5)
 uniform float u_trackingIntensity; // tracking line strength (default 0.0, range 0-1)
+uniform float u_noiseShape;   // 0=snow, 1=glitch, 2=rgb, 3=fine
 
 varying vec2 v_uv;
 
@@ -267,10 +268,40 @@ void main() {
     color.b = mix(color.b, FromSrgb1(b) * color.b / max(color.b, 0.001), 0.5);
   }
 
-  // Static noise
+  // Static noise (shape modes)
   if (u_noise > 0.0) {
-    float n = hash(fragCoord + fract(u_time * 43.758)) * 2.0 - 1.0;
-    color += vec3(n) * u_noise * 0.15;
+    float noiseAmt = u_noise * 0.3;
+    vec2 nCoord = fragCoord + fract(u_time * 43.758);
+
+    if (u_noiseShape < 0.5) {
+      // Snow: chunky analog TV static (8x8 pixel blocks)
+      vec2 blockCoord = floor(nCoord / 8.0);
+      float n = hash(blockCoord) * 2.0 - 1.0;
+      color += vec3(n) * noiseAmt;
+    } else if (u_noiseShape < 1.5) {
+      // Glitch: horizontal blocky bands
+      float bandY = floor(nCoord.y / 16.0);
+      float bandHash = hash(vec2(bandY, floor(u_time * 12.0)));
+      if (bandHash > 0.85) {
+        float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 2.0;
+        color = FromSrgb(texture2D(u_texture, v_uv + vec2(shift, 0.0)).rgb);
+      }
+      float n = hash(vec2(floor(nCoord.x / 4.0), bandY)) * 2.0 - 1.0;
+      color += vec3(n) * noiseAmt * 0.3;
+    } else if (u_noiseShape < 2.5) {
+      // RGB: per-channel color noise (4x4 blocks)
+      vec2 blockCoord = floor(nCoord / 4.0);
+      vec3 rgbNoise = vec3(
+        hash(blockCoord),
+        hash(blockCoord + 127.0),
+        hash(blockCoord + 311.0)
+      ) * 2.0 - 1.0;
+      color += rgbNoise * noiseAmt;
+    } else {
+      // Fine: original per-pixel grain
+      float n = hash(nCoord) * 2.0 - 1.0;
+      color += vec3(n) * noiseAmt;
+    }
   }
 
   // Tracking line brightness
