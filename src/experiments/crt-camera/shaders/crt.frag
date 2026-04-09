@@ -142,12 +142,6 @@ vec3 CrtsFilter(
     1.0 + (pos.y * pos.y) * warp.x * u_warp,
     1.0 + (pos.x * pos.x) * warp.y * u_warp);
 
-  // Vignette: darken corners after warping
-  float vin = 1.0 - (
-    (1.0 - clamp(pos.x * pos.x, 0.0, 1.0)) *
-    (1.0 - clamp(pos.y * pos.y, 0.0, 1.0)));
-  vin = clamp((-vin) * inputHeight + inputHeight, 0.0, 1.0);
-
   // Leave in {0 to inputSize}
   pos = pos * halfInputSize + halfInputSize;
 
@@ -193,8 +187,7 @@ vec3 CrtsFilter(
   float pix3 = exp2(blur * off3 * off3);
   float pixT = 1.0 / (pix0 + pix1 + pix2 + pix3);
 
-  // Vignette applied to normalization
-  pixT *= max(u_minVin, vin);
+  // (vignette applied as post-process)
 
   scanA *= pixT;
   scanB *= pixT;
@@ -282,6 +275,15 @@ void main() {
 
   // Tracking line brightness
   color += vec3(track * u_trackingIntensity * 0.2);
+
+  // Post-process vignette: radial gradient overlay (not affected by warp)
+  if (u_minVin < 0.99) {
+    vec2 vigUV = v_uv * 2.0 - 1.0;
+    float vigDist = length(vigUV);
+    // Soft radial falloff: center is clear, edges darken
+    float vig = smoothstep(0.3, 1.4, vigDist);
+    color *= mix(1.0, 1.0 - vig, 1.0 - u_minVin);
+  }
 
   gl_FragColor = vec4(ToSrgb(max(color, vec3(0.0))), 1.0);
 }

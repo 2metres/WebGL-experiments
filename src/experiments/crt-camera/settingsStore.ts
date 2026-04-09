@@ -19,7 +19,7 @@ export const DEFAULTS: CrtSettings = {
   warp: 2,
   minVin: 0,
   thin: 1,
-  blur: -3,
+  blur: -2.5,
   mask: 0.69,
   maskType: 2,
   chromatic: 0.1,
