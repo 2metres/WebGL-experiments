@@ -126,8 +126,8 @@
   <details class="section" open>
     <summary>CRT Display</summary>
     <div class="section-body">
-      <RangeSlider label="Scanline Scale" bind:value={scale} bind:audioMode={ar.scale} bind:audioMax={am.scale} min={0.1} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
-      <RangeSlider label="Scanline Thickness" bind:value={thin} bind:audioMode={ar.thin} bind:audioMax={am.thin} min={0.5} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+      <RangeSlider label="Scanline Scale" bind:value={scale} bind:audioMode={ar.scale} bind:audioMax={am.scale} min={0.1} max={4.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
+      <RangeSlider label="Scanline Thickness" bind:value={thin} bind:audioMode={ar.thin} bind:audioMax={am.thin} min={0.0} max={4.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
       <label class="checkbox-row">
         <input type="checkbox" bind:checked={antiMoire} />
         Anti-Moiré
