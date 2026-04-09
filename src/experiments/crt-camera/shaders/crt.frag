@@ -276,7 +276,8 @@ void main() {
     if (u_noiseShape < 0.5) {
       // Snow: chunky analog TV static (8x8 pixel blocks)
       vec2 blockCoord = floor(nCoord / 8.0);
-      float n = hash(blockCoord + floor(u_time * 30.0)) * 2.0 - 1.0;
+      float ts = floor(u_time * 30.0);
+      float n = hash(blockCoord + ts * vec2(127.1, 311.7)) * 2.0 - 1.0;
       color += vec3(n) * noiseAmt;
     } else if (u_noiseShape < 1.5) {
       // Glitch: horizontal blocky bands
@@ -291,11 +292,11 @@ void main() {
     } else if (u_noiseShape < 2.5) {
       // RGB: per-channel color noise (4x4 blocks)
       vec2 blockCoord = floor(nCoord / 4.0);
-      float timeSeed = floor(u_time * 30.0);
+      float ts = floor(u_time * 30.0);
       vec3 rgbNoise = vec3(
-        hash(blockCoord + timeSeed),
-        hash(blockCoord + timeSeed + 127.0),
-        hash(blockCoord + timeSeed + 311.0)
+        hash(blockCoord + ts * vec2(127.1, 311.7)),
+        hash(blockCoord + ts * vec2(127.1, 311.7) + 127.0),
+        hash(blockCoord + ts * vec2(127.1, 311.7) + 311.0)
       ) * 2.0 - 1.0;
       color += rgbNoise * noiseAmt;
     } else {
