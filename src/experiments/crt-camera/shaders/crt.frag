@@ -115,6 +115,12 @@ vec3 CrtsMask(vec2 pos, float dark) {
 //   inputSizeMul — typically vec2(1.0)
 //   inputSizeHalf — inputSize * 0.5
 //   inputSizeRcp — 1.0 / inputSize
+float hash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
 //   outputSizeRcp — 1.0 / outputSize
 //   outputSize2Rcp — 2.0 / outputSize
 //   outputSizeY — outputSize.y
@@ -217,11 +223,6 @@ vec3 CrtsFilter(
 }
 
 // Pseudo-random hash for noise
-float hash(vec2 p) {
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
 
 // VHS tracking line: a bright horizontal band that scrolls vertically
 float trackingLine(vec2 uv, float time, float speed) {
