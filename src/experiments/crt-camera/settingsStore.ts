@@ -19,21 +19,21 @@ export interface CrtSettings {
 }
 
 export const DEFAULTS: CrtSettings = {
-  scale: 0.75,
-  warp: 2,
+  scale: 0.4,
+  warp: 32,
   minVin: 0,
-  thin: 1,
-  blur: -2.5,
-  mask: 0.69,
+  thin: 0.6,
+  blur: 0,
+  mask: 0.07,
   maskType: 2,
-  chromatic: 0.1,
-  noise: 0.05,
+  chromatic: 10,
+  noise: 0.24,
   noiseShape: 0,
   scanlineGlitch: 0,
-  trackingSpeed: 1.7,
-  trackingIntensity: 0.13,
-  trackingBlend: 0,
-  audioReactive: false,
+  trackingSpeed: 2.3,
+  trackingIntensity: 3,
+  trackingBlend: 2,
+  audioReactive: true,
 };
 
 export const settingsStore = createPersistedStore<CrtSettings>("crt-camera:settings", DEFAULTS);
