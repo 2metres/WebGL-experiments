@@ -120,70 +120,98 @@ vec3 CrtsMask(vec2 pos, float dark) {
 //   mask — shadow mask intensity
 //   tone — precomputed tone curve (from CrtsTone)
 vec3 CrtsFilter(
-  vec2 fragCoord,
-  vec2 inputSizeMul,
-  vec2 inputSizeHalf,
-  vec2 inputSizeRcp,
-  vec2 outputSizeRcp,
-  vec2 outputSize2Rcp,
-  float outputSizeY,
+  vec2 ipos,
+  vec2 inputSizeDivOutputSize,
+  vec2 halfInputSize,
+  vec2 rcpInputSize,
+  vec2 rcpOutputSize,
+  vec2 twoDivOutputSize,
+  float inputHeight,
   vec2 warp,
   float thin,
   float blur,
   float mask,
   vec2 tone
 ) {
-  // Normalized position in [-1, 1]
-  vec2 pos = fragCoord * outputSize2Rcp - vec2(1.0);
+  // Convert to {-1 to 1} range
+  vec2 pos = ipos * twoDivOutputSize - vec2(1.0);
 
-  // Barrel distortion (controlled by u_warp as a multiplier)
-  vec2 dist = pos * pos;
-  pos *= 1.0 + (dist.yx * warp) * u_warp;
+  // Barrel distortion (u_warp smoothly controls strength)
+  pos *= vec2(
+    1.0 + (pos.y * pos.y) * warp.x * u_warp,
+    1.0 + (pos.x * pos.x) * warp.y * u_warp);
 
-  // Convert back to UV in [0, 1]
-  vec2 uv = pos * 0.5 + vec2(0.5);
+  // Vignette: darken corners after warping
+  float vin = 1.0 - (
+    (1.0 - clamp(pos.x * pos.x, 0.0, 1.0)) *
+    (1.0 - clamp(pos.y * pos.y, 0.0, 1.0)));
+  vin = clamp((-vin) * inputHeight + inputHeight, 0.0, 1.0);
 
-  // Vignette: darken edges. u_minVin controls max darkness.
-  float vin = u_minVin + (1.0 - u_minVin) * clamp(
-    (1.0 - (1.0 - abs(pos.x)) * (1.0 - abs(pos.y))) * 2.0,
-    0.0, 1.0
-  );
-  vin = clamp(vin, 0.0, 1.0);
+  // Leave in {0 to inputSize}
+  pos = pos * halfInputSize + halfInputSize;
 
-  // Scanlines: vertical cosine wave
-  float srcY = uv.y * inputSizeHalf.y * 2.0;
-  float off = floor(srcY) * inputSizeRcp.y;
-  float py = srcY - floor(srcY);
-  // Scanline weight: thinner = harder falloff
-  float scan0 = clamp((thin * 2.0 + 2.0) * (1.0 - 2.0 * abs(py - 0.5)), 0.0, 1.0);
-  float scan1 = clamp((thin * 2.0 + 2.0) * (1.0 - 2.0 * abs(py + 0.5 - 1.0)), 0.0, 1.0);
+  // Snap to center of first scanline
+  float y0 = floor(pos.y - 0.5) + 0.5;
+  // Snap to center of one of four pixels
+  float x0 = floor(pos.x - 1.5) + 0.5;
 
-  // UV for top and bottom scanline rows
-  vec2 uv0 = vec2(uv.x, off + inputSizeRcp.y * 0.5);
-  vec2 uv1 = vec2(uv.x, off + inputSizeRcp.y * 1.5);
+  // Initial UV position
+  vec2 p = vec2(x0 * rcpInputSize.x, y0 * rcpInputSize.y);
+  // Fetch 4 nearest texels from 2 nearest scanlines
+  vec3 colA0 = CrtsFetch(p);
+  p.x += rcpInputSize.x;
+  vec3 colA1 = CrtsFetch(p);
+  p.x += rcpInputSize.x;
+  vec3 colA2 = CrtsFetch(p);
+  p.x += rcpInputSize.x;
+  vec3 colA3 = CrtsFetch(p);
+  p.y += rcpInputSize.y;
+  vec3 colB3 = CrtsFetch(p);
+  p.x -= rcpInputSize.x;
+  vec3 colB2 = CrtsFetch(p);
+  p.x -= rcpInputSize.x;
+  vec3 colB1 = CrtsFetch(p);
+  p.x -= rcpInputSize.x;
+  vec3 colB0 = CrtsFetch(p);
 
-  // Horizontal gaussian blur: 4 taps with blur offset
-  float blurOffset = blur * inputSizeRcp.x;
+  // Vertical filter: scanline intensity via cosine wave
+  float off = pos.y - y0;
+  float pi2 = 6.28318530717958;
+  float hlf = 0.5;
+  float scanA = cos(min(0.5, off * thin) * pi2) * hlf + hlf;
+  float scanB = cos(min(0.5, (-off) * thin + thin) * pi2) * hlf + hlf;
+
+  // Horizontal kernel: gaussian filter
+  float off0 = pos.x - x0;
+  float off1 = off0 - 1.0;
+  float off2 = off0 - 2.0;
+  float off3 = off0 - 3.0;
+  float pix0 = exp2(blur * off0 * off0);
+  float pix1 = exp2(blur * off1 * off1);
+  float pix2 = exp2(blur * off2 * off2);
+  float pix3 = exp2(blur * off3 * off3);
+  float pixT = 1.0 / (pix0 + pix1 + pix2 + pix3);
+
+  // Vignette applied to normalization
+  pixT *= max(u_minVin, vin);
+
+  scanA *= pixT;
+  scanB *= pixT;
+
+  // Apply horizontal and vertical filters
   vec3 color =
-    CrtsFetch(vec2(uv0.x - blurOffset, uv0.y)) * scan0 +
-    CrtsFetch(vec2(uv0.x,              uv0.y)) * scan0 +
-    CrtsFetch(vec2(uv0.x + blurOffset, uv0.y)) * scan0 +
-    CrtsFetch(vec2(uv1.x - blurOffset, uv1.y)) * scan1 +
-    CrtsFetch(vec2(uv1.x,              uv1.y)) * scan1 +
-    CrtsFetch(vec2(uv1.x + blurOffset, uv1.y)) * scan1;
-  color *= (1.0 / 3.0) * (0.5 / (scan0 + scan1 + 0.0001));
+    (colA0 * pix0 + colA1 * pix1 + colA2 * pix2 + colA3 * pix3) * scanA +
+    (colB0 * pix0 + colB1 * pix1 + colB2 * pix2 + colB3 * pix3) * scanB;
 
-  // Phosphor mask
-  vec3 msk = CrtsMask(fragCoord, mask);
-  color *= msk;
+  // Apply phosphor mask
+  color *= CrtsMask(ipos, mask);
 
-  // Tonal curve: c = c * (a*c + b)^-1  (approximate gamma/exposure)
-  float peak = CrtsMax3F1(color.r, color.g, color.b);
-  peak = max(peak, 0.0001);
-  float peakT = peak * (tone.x * peak + tone.y);
-  color *= (peakT / peak) * vin;
-
-  return color;
+  // Tonal control
+  float peak = max(1.0 / (256.0 * 65536.0),
+    CrtsMax3F1(color.r, color.g, color.b));
+  vec3 ratio = color * (1.0 / peak);
+  peak = peak * (1.0 / (peak * tone.x + tone.y));
+  return ratio * peak;
 }
 
 // Pseudo-random hash for noise
