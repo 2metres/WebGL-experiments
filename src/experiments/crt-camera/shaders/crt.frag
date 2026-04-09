@@ -289,8 +289,9 @@ void main() {
       float n = hash(blockCoord + ts * vec2(127.1, 311.7)) * 2.0 - 1.0;
       color += vec3(n) * noiseAmt;
     } else if (u_noiseShape < 1.5) {
-      // Glitch: horizontal blocky bands
-      float bandY = floor(nCoord.y / 16.0);
+      // Glitch: horizontal blocky bands (height matches scanline scale)
+      float bandSize = max(2.0, 16.0 * u_scale);
+      float bandY = floor(nCoord.y / bandSize);
       float bandHash = hash(vec2(bandY, floor(u_time * 12.0)));
       if (bandHash > 0.85) {
         float shift = (hash(vec2(bandY, u_time)) - 0.5) * noiseAmt * 2.0;
