@@ -281,7 +281,15 @@ void main() {
   if (u_chromatic > 0.0) {
     float baseOffset = u_chromatic * 0.001;
     float trackBoost = track * u_trackingIntensity * u_chromatic * 0.0005;
-    float offset = baseOffset + trackBoost;
+    // Boost chromatic aberration inside glitch bands
+    float glitchChroma = 1.0;
+    if (u_trackingGlitch > 0.0) {
+      float gSeed = floor(u_time * 15.0);
+      float gBandY = floor(uv.y * u_trackingGlitchScale);
+      float gJitter = abs(hash(vec2(gBandY, gSeed)) * 2.0 - 1.0);
+      glitchChroma += gJitter * u_trackingGlitch * track * 10.0;
+    }
+    float offset = (baseOffset + trackBoost) * glitchChroma;
     vec2 dir = uv - 0.5; // Direction from center
     float r = texture2D(u_texture, uv + dir * offset).r;
     float b = texture2D(u_texture, uv - dir * offset).b;
