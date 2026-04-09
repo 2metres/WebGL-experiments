@@ -6,7 +6,10 @@
   import { ControlBar } from "../../lib/ui";
   import { crtFrag, fullscreenVert } from "./shaders";
   import type { ShaderProgram } from "../../lib/gl";
+  import { settingsStore } from "./settingsStore";
+  import CrtCameraSettings from "./CrtCameraSettings.svelte";
 
+  let panelOpen = $state(false);
   let camera: CameraCapture;
   let canvas: HTMLCanvasElement;
   let gl: WebGLRenderingContext;
@@ -35,29 +38,28 @@
   }
 
   function render() {
+    const s = settingsStore.getState();
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.useProgram(crtProgram.program);
 
-    // Bind webcam texture
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, cameraTexture);
     gl.uniform1i(crtProgram.uniforms["u_texture"], 0);
 
-    // Set uniforms
     gl.uniform2f(crtProgram.uniforms["u_resolution"],
       gl.drawingBufferWidth, gl.drawingBufferHeight);
-    gl.uniform1f(crtProgram.uniforms["u_scale"], 0.33333);
-    gl.uniform1f(crtProgram.uniforms["u_warp"], 1.0);
-    gl.uniform1f(crtProgram.uniforms["u_minVin"], 0.5);
-    gl.uniform1f(crtProgram.uniforms["u_thin"], 0.75);
-    gl.uniform1f(crtProgram.uniforms["u_blur"], -2.75);
-    gl.uniform1f(crtProgram.uniforms["u_mask"], 0.65);
-    gl.uniform1f(crtProgram.uniforms["u_maskType"], 0.0);
+    gl.uniform1f(crtProgram.uniforms["u_scale"], s.scale);
+    gl.uniform1f(crtProgram.uniforms["u_warp"], s.warp);
+    gl.uniform1f(crtProgram.uniforms["u_minVin"], s.minVin);
+    gl.uniform1f(crtProgram.uniforms["u_thin"], s.thin);
+    gl.uniform1f(crtProgram.uniforms["u_blur"], s.blur);
+    gl.uniform1f(crtProgram.uniforms["u_mask"], s.mask);
+    gl.uniform1f(crtProgram.uniforms["u_maskType"], s.maskType);
     gl.uniform1f(crtProgram.uniforms["u_time"], elapsedTime);
-    gl.uniform1f(crtProgram.uniforms["u_chromatic"], 0.0);
-    gl.uniform1f(crtProgram.uniforms["u_noise"], 0.0);
-    gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], 0.0);
-    gl.uniform1f(crtProgram.uniforms["u_trackingIntensity"], 0.0);
+    gl.uniform1f(crtProgram.uniforms["u_chromatic"], s.chromatic);
+    gl.uniform1f(crtProgram.uniforms["u_noise"], s.noise);
+    gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], s.trackingSpeed);
+    gl.uniform1f(crtProgram.uniforms["u_trackingIntensity"], s.trackingIntensity);
 
     drawQuad(gl, crtProgram, quadVBO);
   }
@@ -117,5 +119,11 @@
 <CanvasContainer oncanvas={handleCanvas} onresize={handleResize} />
 
 <ControlBar>
-  <button disabled>Settings (coming soon)</button>
+  <button onclick={() => (panelOpen = !panelOpen)}>
+    {panelOpen ? "Close" : "Settings"}
+  </button>
 </ControlBar>
+
+{#if panelOpen}
+  <CrtCameraSettings />
+{/if}
