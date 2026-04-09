@@ -300,7 +300,7 @@ void main() {
         vec3 glitchedMask = CrtsMask(fragCoord + vec2(shift * u_resolution.x, 0.0), u_mask);
         color = color / max(origMask, vec3(0.01)) * glitchedMask;
       }
-      float n = hash(vec2(floor(nCoord.x / 4.0), bandY)) * 2.0 - 1.0;
+      float n = hash(vec2(floor(nCoord.x / 4.0), bandY) + floor(u_time * 30.0) * vec2(127.1, 311.7)) * 2.0 - 1.0;
       color += vec3(n) * noiseAmt * 0.3;
     } else if (u_noiseShape < 2.5) {
       // RGB: per-channel color noise (4x4 blocks)
