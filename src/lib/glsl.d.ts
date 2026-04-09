@@ -14,3 +14,4 @@ declare module "*.glsl?raw" {
 }
 
 declare module "webgl-lint";
+declare module "webgl-lint/webgl-lint.js";
