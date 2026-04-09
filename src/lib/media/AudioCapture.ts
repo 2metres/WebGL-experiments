@@ -9,6 +9,16 @@ export class AudioCapture {
   private _low = 0;
   private _high = 0;
 
+  // BPM detection
+  private _bpm = 0;
+  private energyHistory: number[] = [];
+  private beatTimestamps: number[] = [];
+  private lastBeatTime = 0;
+  private energyThreshold = 0;
+  private readonly BEAT_COOLDOWN = 200; // ms between beats minimum
+  private readonly BPM_WINDOW = 8000; // ms of beat history to consider
+  private readonly ENERGY_HISTORY_SIZE = 43; // ~0.7s at 60fps
+
   /** Rolling history of audio deltas — maps along the path */
   readonly historySize = 256;
   private history = new Float32Array(256);
@@ -31,6 +41,11 @@ export class AudioCapture {
   /** High frequency band level (~5kHz+), updated each frame via updateHistory() */
   get high() {
     return this._high;
+  }
+
+  /** Detected BPM from onset detection, 0 if not enough data */
+  get bpm() {
+    return this._bpm;
   }
 
   async start(existingStream?: MediaStream): Promise<boolean> {
@@ -93,6 +108,39 @@ export class AudioCapture {
       highSumSq += v * v;
     }
     this._high = Math.min(1, Math.sqrt(highSumSq / highCount) * 2.5);
+
+    // BPM: onset detection via low-band energy spikes
+    this.energyHistory.push(this._low);
+    if (this.energyHistory.length > this.ENERGY_HISTORY_SIZE) {
+      this.energyHistory.shift();
+    }
+    if (this.energyHistory.length >= 10) {
+      const avg = this.energyHistory.reduce((a, b) => a + b, 0) / this.energyHistory.length;
+      this.energyThreshold = avg * 1.4 + 0.05;
+      const now = performance.now();
+      if (this._low > this.energyThreshold && now - this.lastBeatTime > this.BEAT_COOLDOWN) {
+        this.lastBeatTime = now;
+        this.beatTimestamps.push(now);
+        // Prune old beats
+        while (this.beatTimestamps.length > 0 && now - this.beatTimestamps[0] > this.BPM_WINDOW) {
+          this.beatTimestamps.shift();
+        }
+        // Compute BPM from median interval
+        if (this.beatTimestamps.length >= 3) {
+          const intervals: number[] = [];
+          for (let i = 1; i < this.beatTimestamps.length; i++) {
+            intervals.push(this.beatTimestamps[i] - this.beatTimestamps[i - 1]);
+          }
+          intervals.sort((a, b) => a - b);
+          const median = intervals[Math.floor(intervals.length / 2)];
+          const bpm = 60000 / median;
+          // Clamp to reasonable range
+          if (bpm >= 50 && bpm <= 220) {
+            this._bpm = Math.round(bpm);
+          }
+        }
+      }
+    }
 
     const delta = Math.max(0, level - this.prevLevel);
     this.prevLevel = level;

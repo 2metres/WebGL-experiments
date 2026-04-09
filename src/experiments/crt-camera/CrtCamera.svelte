@@ -85,7 +85,12 @@
     gl.uniform1f(crtProgram.uniforms["u_trackingScale"], ar("trackingScale", s.trackingScale));
     gl.uniform1f(crtProgram.uniforms["u_trackingGlitch"], ar("trackingGlitch", s.trackingGlitch));
     gl.uniform1f(crtProgram.uniforms["u_trackingGlitchScale"], ar("trackingGlitchScale", s.trackingGlitchScale));
-    gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], ar("trackingSpeed", s.trackingSpeed));
+    // BPM sync: when bpmScale > 0 and audio detects BPM, override tracking speed
+    let speed = s.trackingSpeed;
+    if (s.bpmScale > 0 && audio?.isActive && audio.bpm > 0) {
+      speed = (audio.bpm / 60) * s.bpmScale;
+    }
+    gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], speed);
     gl.uniform1f(crtProgram.uniforms["u_trackingIntensity"], ar("trackingIntensity", s.trackingIntensity));
     gl.uniform1f(crtProgram.uniforms["u_trackingBlend"], s.trackingBlend);
 

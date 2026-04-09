@@ -21,6 +21,7 @@
   let trackingIntensity = $state(settingsStore.getState().trackingIntensity);
   let trackingBlend = $state(settingsStore.getState().trackingBlend);
   let glow = $state(settingsStore.getState().glow);
+  let bpmScale = $state(settingsStore.getState().bpmScale ?? DEFAULTS.bpmScale);
   const storedAr = settingsStore.getState().audioReactive;
   let ar = $state<Record<string, number>>({
     ...DEFAULTS.audioReactive,
@@ -50,6 +51,7 @@
   $effect(() => { settingsStore.getState().set("trackingIntensity", trackingIntensity); });
   $effect(() => { settingsStore.getState().set("trackingBlend", trackingBlend); });
   $effect(() => { settingsStore.getState().set("glow", glow); });
+  $effect(() => { settingsStore.getState().set("bpmScale", bpmScale); });
   $effect(() => { settingsStore.getState().set("audioReactive", {...ar}); });
   $effect(() => { settingsStore.getState().set("audioMax", {...am}); });
 
@@ -73,6 +75,7 @@
     trackingIntensity = DEFAULTS.trackingIntensity;
     trackingBlend = DEFAULTS.trackingBlend;
     glow = DEFAULTS.glow;
+    bpmScale = DEFAULTS.bpmScale;
     ar = {...DEFAULTS.audioReactive};
     am = {...DEFAULTS.audioMax};
   }
@@ -86,7 +89,7 @@
       scale, warp, minVin, thin, blur, mask, maskType, antiMoire,
       chromatic, noise, noiseShape, trackingScale, trackingGlitch,
       trackingGlitchScale, trackingSpeed, trackingIntensity, trackingBlend,
-      glow, audioReactive: {...ar}, audioMax: {...am},
+      glow, bpmScale, audioReactive: {...ar}, audioMax: {...am},
     };
   }
 
@@ -107,6 +110,7 @@
     trackingGlitchScale = s.trackingGlitchScale; trackingSpeed = s.trackingSpeed;
     trackingIntensity = s.trackingIntensity; trackingBlend = s.trackingBlend;
     glow = s.glow;
+    bpmScale = s.bpmScale ?? DEFAULTS.bpmScale;
     ar = {...DEFAULTS.audioReactive, ...(s.audioReactive ?? {})};
     am = {...DEFAULTS.audioMax, ...(s.audioMax ?? {})};
   }
@@ -171,7 +175,15 @@
   <details class="section" open>
     <summary>Tracking</summary>
     <div class="section-body">
-      <RangeSlider label="Speed" bind:value={trackingSpeed} bind:audioMode={ar.trackingSpeed} bind:audioMax={am.trackingSpeed} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
+      <RangeSlider label="Speed" bind:value={trackingSpeed} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
+      <div class="toggle-label">BPM Sync</div>
+      <div class="toggle-group">
+        <button class:active={bpmScale === 0.25} onclick={() => bpmScale = bpmScale === 0.25 ? 0 : 0.25}>1/4</button>
+        <button class:active={bpmScale === 0.5} onclick={() => bpmScale = bpmScale === 0.5 ? 0 : 0.5}>1/2</button>
+        <button class:active={bpmScale === 1} onclick={() => bpmScale = bpmScale === 1 ? 0 : 1}>1x</button>
+        <button class:active={bpmScale === 2} onclick={() => bpmScale = bpmScale === 2 ? 0 : 2}>2x</button>
+        <button class:active={bpmScale === 3} onclick={() => bpmScale = bpmScale === 3 ? 0 : 3}>3x</button>
+      </div>
       <RangeSlider label="Intensity" bind:value={trackingIntensity} bind:audioMode={ar.trackingIntensity} bind:audioMax={am.trackingIntensity} min={0} max={10} step={0.01} formatValue={(v) => v.toFixed(2)} />
       <RangeSlider label="Scale" bind:value={trackingScale} bind:audioMode={ar.trackingScale} bind:audioMax={am.trackingScale} min={0.01} max={2.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
       <RangeSlider label="Glitch" bind:value={trackingGlitch} bind:audioMode={ar.trackingGlitch} bind:audioMax={am.trackingGlitch} min={0} max={2} step={0.01} formatValue={(v) => v.toFixed(2)} />
