@@ -9,6 +9,12 @@ export class AudioCapture {
   private _low = 0;
   private _high = 0;
 
+  // Auto-gain: track recent peaks per band, decay over ~2s
+  private peakLevel = 0.01;
+  private peakLow = 0.01;
+  private peakHigh = 0.01;
+  private readonly PEAK_DECAY = 0.995; // per-frame decay (~2s half-life at 60fps)
+
   // BPM detection
   private _bpm = 0;
   private energyHistory: number[] = [];
@@ -90,7 +96,6 @@ export class AudioCapture {
       sumSq += v * v;
     }
     const level = Math.sqrt(sumSq / this.freqData.length);
-    this._level = Math.min(1, level * 2.5); // boost to use more of 0-1 range
 
     // Low band: bins 0-8 (~0-700Hz)
     let lowSumSq = 0;
@@ -98,7 +103,7 @@ export class AudioCapture {
       const v = this.freqData[i] / 255;
       lowSumSq += v * v;
     }
-    this._low = Math.min(1, Math.sqrt(lowSumSq / 9) * 2.5);
+    const rawLow = Math.sqrt(lowSumSq / 9);
 
     // High band: bins 41+ (~5kHz+)
     let highSumSq = 0;
@@ -107,7 +112,17 @@ export class AudioCapture {
       const v = this.freqData[i] / 255;
       highSumSq += v * v;
     }
-    this._high = Math.min(1, Math.sqrt(highSumSq / highCount) * 2.5);
+    const rawHigh = Math.sqrt(highSumSq / highCount);
+
+    // Auto-gain: track peaks, decay slowly so normalization adapts
+    this.peakLevel = Math.max(this.peakLevel * this.PEAK_DECAY, level, 0.01);
+    this.peakLow = Math.max(this.peakLow * this.PEAK_DECAY, rawLow, 0.01);
+    this.peakHigh = Math.max(this.peakHigh * this.PEAK_DECAY, rawHigh, 0.01);
+
+    // Normalize to recent peak so loud moments reach 1.0
+    this._level = Math.min(1, level / this.peakLevel);
+    this._low = Math.min(1, rawLow / this.peakLow);
+    this._high = Math.min(1, rawHigh / this.peakHigh);
 
     // BPM: onset detection via low-band energy spikes
     this.energyHistory.push(this._low);

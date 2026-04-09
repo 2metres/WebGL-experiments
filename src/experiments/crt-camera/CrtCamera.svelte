@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { CanvasContainer, createAnimationLoop } from "../../lib/canvas";
-  import { AudioCapture, CameraCapture } from "../../lib/media";
+  import { AudioCapture, CameraCapture, MidiClock } from "../../lib/media";
   import { createProgram, createQuadVBO, drawQuad } from "../../lib/gl";
   import { ControlBar } from "../../lib/ui";
   import { crtFrag, fullscreenVert } from "./shaders";
@@ -12,15 +12,29 @@
   let panelOpen = $state(false);
   let camera: CameraCapture;
   let audio: AudioCapture;
+  let midi: MidiClock;
   let currentAudioLevel = 0.0;
   let currentAudioLow = 0.0;
   let currentAudioHigh = 0.0;
+  // Smoothed envelopes: fast attack, slow release for dynamic motion
+  let envLow = 0;
+  let envHigh = 0;
   let canvas: HTMLCanvasElement;
   let gl: WebGLRenderingContext;
   let cameraTexture: WebGLTexture | null = null;
   let crtProgram: ShaderProgram;
   let quadVBO: WebGLBuffer;
   let elapsedTime = 0;
+  let smoothedBpm = 0;
+  let lastAutoWrittenBpm = 0;
+  let bpmUserLocked = false;
+
+  // Detect when user manually edits BPM via the settings input
+  settingsStore.subscribe((s) => {
+    if (s.manualBpm !== lastAutoWrittenBpm && lastAutoWrittenBpm > 0) {
+      bpmUserLocked = true;
+    }
+  });
 
   function initCameraTexture(): WebGLTexture {
     const tex = gl.createTexture()!;
@@ -44,9 +58,9 @@
   function audioValue(mode: number): number {
     if (!audio?.isActive) return 0;
     switch (mode) {
-      case 1: return currentAudioLow;
-      case 2: return currentAudioLow + currentAudioHigh;
-      case 3: return currentAudioHigh;
+      case 1: return envLow;
+      case 2: return Math.min(1, envLow + envHigh);
+      case 3: return envHigh;
       default: return 0;
     }
   }
@@ -85,11 +99,9 @@
     gl.uniform1f(crtProgram.uniforms["u_trackingScale"], ar("trackingScale", s.trackingScale));
     gl.uniform1f(crtProgram.uniforms["u_trackingGlitch"], ar("trackingGlitch", s.trackingGlitch));
     gl.uniform1f(crtProgram.uniforms["u_trackingGlitchScale"], ar("trackingGlitchScale", s.trackingGlitchScale));
-    // BPM sync: when bpmScale > 0 and audio detects BPM, override tracking speed
-    let speed = s.trackingSpeed;
-    if (s.bpmScale > 0 && audio?.isActive && audio.bpm > 0) {
-      speed = (audio.bpm / 60) * s.bpmScale;
-    }
+    // Speed derived from BPM × scale
+    const bpm = s.manualBpm ?? 120;
+    const speed = bpm > 0 && s.bpmScale > 0 ? (bpm / 60) * s.bpmScale : 0;
     gl.uniform1f(crtProgram.uniforms["u_trackingSpeed"], speed);
     gl.uniform1f(crtProgram.uniforms["u_trackingIntensity"], ar("trackingIntensity", s.trackingIntensity));
     gl.uniform1f(crtProgram.uniforms["u_trackingBlend"], s.trackingBlend);
@@ -111,6 +123,30 @@
       currentAudioLevel = audio.level;
       currentAudioLow = audio.low;
       currentAudioHigh = audio.high;
+      // Envelope: snap up instantly on peaks, decay smoothly (~300ms release)
+      const release = 1 - Math.exp(-dt / 0.3);
+      envLow = currentAudioLow > envLow ? currentAudioLow : envLow + (currentAudioLow - envLow) * release;
+      envHigh = currentAudioHigh > envHigh ? currentAudioHigh : envHigh + (currentAudioHigh - envHigh) * release;
+    }
+    // Auto-detect BPM: MIDI takes priority, then audio onset detection
+    const rawBpm = (midi?.isActive && midi.bpm > 0) ? midi.bpm
+                 : (audio?.isActive && audio.bpm > 0) ? audio.bpm
+                 : 0;
+    if (rawBpm > 0) {
+      // 5-second exponential moving average
+      const alpha = 1 - Math.exp(-dt / 5.0);
+      smoothedBpm = smoothedBpm > 0
+        ? smoothedBpm + alpha * (rawBpm - smoothedBpm)
+        : rawBpm;
+      if (!bpmUserLocked) {
+        const rounded = Math.round(smoothedBpm);
+        if (rounded !== settingsStore.getState().manualBpm) {
+          lastAutoWrittenBpm = rounded;
+          settingsStore.getState().set("manualBpm", rounded);
+        }
+      }
+    } else {
+      smoothedBpm = 0;
     }
     render();
   });
@@ -134,6 +170,8 @@
     camera = new CameraCapture();
     loop.start();
     enableCamera();
+    midi = new MidiClock();
+    midi.start();
   }
 
   function handleResize(width: number, height: number) {
@@ -158,6 +196,7 @@
     return () => {
       loop.stop();
       audio?.destroy();
+      midi?.destroy();
       camera?.destroy();
       if (cameraTexture && gl) gl.deleteTexture(cameraTexture);
     };

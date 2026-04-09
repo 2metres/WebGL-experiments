@@ -22,6 +22,21 @@
   let trackingBlend = $state(settingsStore.getState().trackingBlend);
   let glow = $state(settingsStore.getState().glow);
   let bpmScale = $state(settingsStore.getState().bpmScale ?? DEFAULTS.bpmScale);
+  let manualBpm = $state(settingsStore.getState().manualBpm ?? DEFAULTS.manualBpm);
+  let bpmFocused = $state(false);
+  let bpmDisplay = $state(String(manualBpm));
+  // Poll store for detected BPM updates when input not focused
+  $effect(() => {
+    if (bpmFocused) return;
+    const interval = setInterval(() => {
+      const stored = settingsStore.getState().manualBpm;
+      if (stored !== manualBpm) {
+        manualBpm = stored;
+        bpmDisplay = String(stored);
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  });
   const storedAr = settingsStore.getState().audioReactive;
   let ar = $state<Record<string, number>>({
     ...DEFAULTS.audioReactive,
@@ -52,8 +67,9 @@
   $effect(() => { settingsStore.getState().set("trackingBlend", trackingBlend); });
   $effect(() => { settingsStore.getState().set("glow", glow); });
   $effect(() => { settingsStore.getState().set("bpmScale", bpmScale); });
-  $effect(() => { settingsStore.getState().set("audioReactive", {...ar}); });
-  $effect(() => { settingsStore.getState().set("audioMax", {...am}); });
+  $effect(() => { settingsStore.getState().set("manualBpm", manualBpm); });
+  $effect(() => { JSON.stringify(ar); settingsStore.getState().set("audioReactive", {...ar}); });
+  $effect(() => { JSON.stringify(am); settingsStore.getState().set("audioMax", {...am}); });
 
   function resetDefaults() {
     settingsStore.getState().resetDefaults();
@@ -76,6 +92,7 @@
     trackingBlend = DEFAULTS.trackingBlend;
     glow = DEFAULTS.glow;
     bpmScale = DEFAULTS.bpmScale;
+    manualBpm = DEFAULTS.manualBpm;
     ar = {...DEFAULTS.audioReactive};
     am = {...DEFAULTS.audioMax};
   }
@@ -89,7 +106,7 @@
       scale, warp, minVin, thin, blur, mask, maskType, antiMoire,
       chromatic, noise, noiseShape, trackingScale, trackingGlitch,
       trackingGlitchScale, trackingSpeed, trackingIntensity, trackingBlend,
-      glow, bpmScale, audioReactive: {...ar}, audioMax: {...am},
+      glow, bpmScale, manualBpm, audioReactive: {...ar}, audioMax: {...am},
     };
   }
 
@@ -111,6 +128,7 @@
     trackingIntensity = s.trackingIntensity; trackingBlend = s.trackingBlend;
     glow = s.glow;
     bpmScale = s.bpmScale ?? DEFAULTS.bpmScale;
+    manualBpm = s.manualBpm ?? DEFAULTS.manualBpm;
     ar = {...DEFAULTS.audioReactive, ...(s.audioReactive ?? {})};
     am = {...DEFAULTS.audioMax, ...(s.audioMax ?? {})};
   }
@@ -152,7 +170,7 @@
   <details class="section" open>
     <summary>Tube</summary>
     <div class="section-body">
-      <RangeSlider label="Warp" bind:value={warp} bind:audioMode={ar.warp} bind:audioMax={am.warp} min={0.0} max={32.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
+      <RangeSlider label="Warp" bind:value={warp} bind:audioMode={ar.warp} bind:audioMax={am.warp} min={0.0} max={128.0} step={0.05} formatValue={(v) => v.toFixed(2)} />
       <RangeSlider label="Vignette" bind:value={minVin} bind:audioMode={ar.minVin} bind:audioMax={am.minVin} min={0.0} max={1.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
     </div>
   </details>
@@ -175,14 +193,30 @@
   <details class="section" open>
     <summary>Tracking</summary>
     <div class="section-body">
-      <RangeSlider label="Speed" bind:value={trackingSpeed} min={0} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
-      <div class="toggle-label">BPM Sync</div>
+      <label class="bpm-input-row">
+        BPM
+        <input
+          class="bpm-input"
+          type="text"
+          inputmode="numeric"
+          bind:value={bpmDisplay}
+          onfocus={(e) => { bpmFocused = true; e.currentTarget.select(); }}
+          onblur={() => {
+            const v = parseInt(bpmDisplay);
+            if (v >= 30 && v <= 300) manualBpm = v;
+            bpmDisplay = String(manualBpm);
+            bpmFocused = false;
+          }}
+          onkeydown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        />
+      </label>
+      <div class="toggle-label">BPM Scale</div>
       <div class="toggle-group">
-        <button class:active={bpmScale === 0.25} onclick={() => bpmScale = bpmScale === 0.25 ? 0 : 0.25}>1/4</button>
-        <button class:active={bpmScale === 0.5} onclick={() => bpmScale = bpmScale === 0.5 ? 0 : 0.5}>1/2</button>
-        <button class:active={bpmScale === 1} onclick={() => bpmScale = bpmScale === 1 ? 0 : 1}>1x</button>
-        <button class:active={bpmScale === 2} onclick={() => bpmScale = bpmScale === 2 ? 0 : 2}>2x</button>
-        <button class:active={bpmScale === 3} onclick={() => bpmScale = bpmScale === 3 ? 0 : 3}>3x</button>
+        <button class:active={bpmScale === 0.25} onclick={() => bpmScale = 0.25}>1/4</button>
+        <button class:active={bpmScale === 0.5} onclick={() => bpmScale = 0.5}>1/2</button>
+        <button class:active={bpmScale === 1} onclick={() => bpmScale = 1}>1x</button>
+        <button class:active={bpmScale === 2} onclick={() => bpmScale = 2}>2x</button>
+        <button class:active={bpmScale === 4} onclick={() => bpmScale = 4}>4x</button>
       </div>
       <RangeSlider label="Intensity" bind:value={trackingIntensity} bind:audioMode={ar.trackingIntensity} bind:audioMax={am.trackingIntensity} min={0} max={10} step={0.01} formatValue={(v) => v.toFixed(2)} />
       <RangeSlider label="Scale" bind:value={trackingScale} bind:audioMode={ar.trackingScale} bind:audioMax={am.trackingScale} min={0.01} max={2.0} step={0.01} formatValue={(v) => v.toFixed(2)} />
@@ -358,6 +392,36 @@
     font-size: 12px;
     color: rgba(255, 255, 255, 0.7);
     margin-bottom: 8px;
+  }
+  .bpm-input-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+  }
+  .bpm-input {
+    width: 48px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 5px 0;
+    font-size: 11px;
+    font-family: inherit;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .bpm-input:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .bpm-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
   }
   .select-row select {
     background: rgba(255, 255, 255, 0.08);
