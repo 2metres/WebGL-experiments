@@ -242,7 +242,7 @@ void main() {
   fragCoord = uv * u_resolution;
 
   // Compute warp edge mask: black out areas pushed outside the tube
-  vec2 warpPos = (uv * 2.0 - 1.0);
+  vec2 warpPos = (v_uv * 2.0 - 1.0);
   float wr2 = dot(warpPos, warpPos);
   warpPos *= 1.0 + wr2 * vec2(1.0 / (50.0 * aspect), 1.0 / 50.0) * u_warp;
   float warpEdge = smoothstep(1.0, 0.98, max(abs(warpPos.x), abs(warpPos.y)));
