@@ -109,12 +109,18 @@ vec3 roomBackground(vec2 uv) {
     vec3 L = normalize(u_lightDir);
     float diff = max(dot(hitNormal, L), 0.0) * 0.5 + 0.5;
 
-    // Soft ambient occlusion at corners (distance from edges)
+    // Soft ambient occlusion at corners — only from perpendicular edges
     float ao = 1.0;
-    ao *= smoothstep(0.0, 0.5, hitPos.x + 2.0); // left edge
-    ao *= smoothstep(0.0, 0.5, 2.0 - hitPos.x);  // right edge
-    ao *= smoothstep(0.0, 0.4, hitPos.y + 0.5);   // floor edge
-    ao *= smoothstep(0.0, 0.8, hitPos.z + 2.0);   // back edge
+    if (abs(hitNormal.x) < 0.5) {                   // skip for side walls
+      ao *= smoothstep(0.0, 0.5, hitPos.x + 2.0);   // left edge
+      ao *= smoothstep(0.0, 0.5, 2.0 - hitPos.x);   // right edge
+    }
+    if (abs(hitNormal.y) < 0.5) {                    // skip for floor/ceiling
+      ao *= smoothstep(0.0, 0.4, hitPos.y + 0.5);   // floor edge
+    }
+    if (abs(hitNormal.z) < 0.5) {                    // skip for back wall
+      ao *= smoothstep(0.0, 0.8, hitPos.z + 2.0);   // back edge
+    }
 
     // Distance fade
     float fade = 1.0 / (1.0 + tMin * 0.08);
