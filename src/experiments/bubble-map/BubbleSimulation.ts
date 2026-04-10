@@ -60,21 +60,21 @@ export class BubbleSimulation {
     physicsMode: 0,
     gravity: 15,
     viscosity: 0.3,
-    thickness: 0.03,
-    densityScale: 0.05,
+    thickness: 0.15,
+    densityScale: 0.3,
     softness: 0.85,
-    absorption: 4.0,
+    absorption: 1.0,
     colorHue: 0.55,
-    colorSat: 0.7,
-    colorVal: 0.9,
+    colorSat: 0.35,
+    colorVal: 0.95,
     useBaseColor: 0,
     opacity: 1.0,
     depthScale: 8.0,
-    shininess: 200,
-    specStrength: 1.5,
-    fresnelF0: 0.04,
-    envBright: 0.6,
-    bgBright: 0.9,
+    shininess: 300,
+    specStrength: 2.5,
+    fresnelF0: 0.12,
+    envBright: 1.2,
+    bgBright: 0.95,
     lightAngleX: 0.5,
     lightAngleY: 0.8,
   };
@@ -225,49 +225,43 @@ export class BubbleSimulation {
       s.spawnRate, s.emitterLife, s.spread, s.particleLife,
     );
 
-    if (this.grid.cellCount === 0) {
-      gl.viewport(0, 0, this.width, this.height);
-      gl.clearColor(0.92, 0.91, 0.93, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      return;
-    }
-
-    const instanceData = this.grid.packInstances(this.width, this.height, this.cellSize);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
-    gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.DYNAMIC_DRAW);
-
     // === Pass 1: Density FBO ===
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.densityFBO.fbo);
     gl.viewport(0, 0, this.width, this.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.useProgram(this.densityProgram.program);
+    if (this.grid.cellCount > 0) {
+      const instanceData = this.grid.packInstances(this.width, this.height, this.cellSize);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
+      gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.DYNAMIC_DRAW);
 
-    gl.uniform1f(this.densityProgram.uniforms["u_densityScale"]!, s.densityScale);
-    gl.uniform1f(this.densityProgram.uniforms["u_softness"]!, s.softness);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.useProgram(this.densityProgram.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
-    const aPos = this.densityProgram.attributes["a_position"];
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-    this.ext.vertexAttribDivisorANGLE(aPos, 0);
+      gl.uniform1f(this.densityProgram.uniforms["u_densityScale"]!, s.densityScale);
+      gl.uniform1f(this.densityProgram.uniforms["u_softness"]!, s.softness);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
-    const aInst = this.densityProgram.attributes["a_instance"];
-    gl.enableVertexAttribArray(aInst);
-    gl.vertexAttribPointer(aInst, 4, gl.FLOAT, false, 0, 0);
-    this.ext.vertexAttribDivisorANGLE(aInst, 1);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
+      const aPos = this.densityProgram.attributes["a_position"];
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      this.ext.vertexAttribDivisorANGLE(aPos, 0);
 
-    const bubbleCount = instanceData.length / 4;
-    this.ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, bubbleCount);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVBO);
+      const aInst = this.densityProgram.attributes["a_instance"];
+      gl.enableVertexAttribArray(aInst);
+      gl.vertexAttribPointer(aInst, 4, gl.FLOAT, false, 0, 0);
+      this.ext.vertexAttribDivisorANGLE(aInst, 1);
 
-    this.ext.vertexAttribDivisorANGLE(aPos, 0);
-    this.ext.vertexAttribDivisorANGLE(aInst, 0);
-    gl.disable(gl.BLEND);
+      const bubbleCount = instanceData.length / 4;
+      this.ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, bubbleCount);
+
+      this.ext.vertexAttribDivisorANGLE(aPos, 0);
+      this.ext.vertexAttribDivisorANGLE(aInst, 0);
+      gl.disable(gl.BLEND);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     // === Pass 2: Goo render ===
