@@ -125,15 +125,15 @@ void main() {
   // === Environment reflection ===
   vec3 reflectionColor = envColor(R);
 
-  // === Specular ===
+  // === Specular (only sharp highlight, no broad sheen) ===
   float spec = pow(NdotH, u_shininess);
-  float spec2 = pow(NdotH, u_shininess * 0.15) * 0.12;
 
   // === Composite ===
   vec3 color = mix(refractionColor, reflectionColor, fresnel);
-  color += fluidColor * (1.0 - t) * NdotL * 0.3; // diffuse tint in thick areas
-  color += vec3(1.0) * (spec * u_specStrength + spec2);
+  color += vec3(1.0) * spec * u_specStrength;     // sharp specular only
 
-  // Always fully opaque — transparency is handled by Beer's law showing the room through
+  // Tone map to prevent blowout to white
+  color = color / (color + vec3(1.0));             // Reinhard
+
   gl_FragColor = vec4(color, u_opacity);
 }
