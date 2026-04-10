@@ -111,11 +111,13 @@ void main() {
   float NdotL = max(dot(normal, L), 0.0);
   float NdotH = max(dot(normal, H), 0.0);
 
-  // === Beer's Law through the room background ===
+  // === Beer's Law through the background ===
   vec3 fluidColor = hsv2rgb(hue, sat, val);
-  vec3 transmittance = exp(-u_absorption * thickness * (vec3(1.0) - fluidColor));
-  // See the room through the fluid, tinted by absorption
-  vec3 refractionColor = bgColor * transmittance + fluidColor * (vec3(1.0) - transmittance);
+  // Absorption coefficient: fluid color determines which wavelengths pass through
+  // Use the color's complement scaled by absorption strength
+  vec3 absorbCoeff = (vec3(1.0) - fluidColor) * u_absorption + vec3(u_absorption * 0.15);
+  vec3 transmittance = exp(-absorbCoeff * thickness);
+  vec3 refractionColor = bgColor * transmittance;
 
   // === Schlick Fresnel ===
   float fresnel = u_fresnelF0 + (1.0 - u_fresnelF0) * pow(1.0 - NdotV, 5.0);
