@@ -14,7 +14,7 @@ uniform float u_baseHue;
 uniform float u_baseSat;
 uniform float u_baseVal;
 uniform float u_useBaseColor;
-uniform float u_depthScale;      // how much density above threshold maps to visual depth
+uniform float u_depthScale;
 
 varying vec2 v_uv;
 
@@ -27,11 +27,13 @@ vec3 hsv2rgb(float h, float s, float v) {
 void main() {
   vec2 texel = 1.0 / u_resolution;
 
+  // Sample wider for smoother normals (2-texel step)
+  vec2 step2 = texel * 2.0;
   float dc = texture2D(u_density, v_uv).r;
-  float dl = texture2D(u_density, v_uv - vec2(texel.x, 0.0)).r;
-  float dr = texture2D(u_density, v_uv + vec2(texel.x, 0.0)).r;
-  float db = texture2D(u_density, v_uv - vec2(0.0, texel.y)).r;
-  float dt = texture2D(u_density, v_uv + vec2(0.0, texel.y)).r;
+  float dl = texture2D(u_density, v_uv - vec2(step2.x, 0.0)).r;
+  float dr = texture2D(u_density, v_uv + vec2(step2.x, 0.0)).r;
+  float db = texture2D(u_density, v_uv - vec2(0.0, step2.y)).r;
+  float dt = texture2D(u_density, v_uv + vec2(0.0, step2.y)).r;
 
   vec4 samp = texture2D(u_density, v_uv);
   float strokeHue = samp.r > 0.001 ? samp.g / samp.r : 0.5;
@@ -41,7 +43,7 @@ void main() {
 
   if (dc < u_threshold) {
     float edgeDist = dc / u_threshold;
-    float glow = smoothstep(0.0, 1.0, edgeDist) * 0.15;
+    float glow = smoothstep(0.0, 1.0, edgeDist) * 0.2;
     if (glow < 0.01) discard;
 
     vec3 glowColor = hsv2rgb(hue, sat * 0.85, val);
@@ -49,42 +51,59 @@ void main() {
     return;
   }
 
-  // Normalized depth: how far above threshold (0=surface, 1=max depth)
-  float depth = smoothstep(u_threshold, 1.0, dc);
+  // Depth relative to threshold — rescale so small density values still give full range
+  // With densityScale=0.05, peak density might be ~0.3, so we scale relative to threshold
+  float aboveThreshold = dc - u_threshold;
+  float depth = clamp(aboveThreshold / max(0.01, u_threshold * u_depthScale), 0.0, 1.0);
 
-  // Compute normal — scale gradient strength by depthScale for more dramatic relief
-  float dzdx = (dr - dl) * 0.5;
-  float dzdy = (dt - db) * 0.5;
-  float gradScale = 4.0 + depth * u_depthScale * 8.0;
-  vec3 normal = normalize(vec3(-dzdx * gradScale, -dzdy * gradScale, 1.0));
+  // Compute normal from density gradient
+  float dzdx = (dr - dl) * 0.25; // divided by 4 texels (2-step each side)
+  float dzdy = (dt - db) * 0.25;
 
-  // Color: surface is bright, deep interior is richer/darker (cloud/jello look)
-  vec3 surfaceColor = hsv2rgb(hue, sat, val);
-  vec3 deepColor = hsv2rgb(hue, min(sat + 0.2, 1.0), val * 0.4);
-  vec3 baseColor = mix(surfaceColor, deepColor, depth * 0.6);
+  // Scale gradient into dramatic normals — key to 3D look
+  // Higher depthScale = steeper perceived surface
+  float gradMag = u_depthScale * 60.0;
+  vec3 normal = normalize(vec3(-dzdx * gradMag, -dzdy * gradMag, u_threshold));
 
-  // Subsurface scattering fake: light passes through thin areas
-  float subsurface = (1.0 - depth) * 0.3;
-  vec3 sssColor = hsv2rgb(hue, sat * 0.5, 1.0) * subsurface;
+  // Color layers: bright surface → rich deep interior
+  vec3 surfaceColor = hsv2rgb(hue, sat * 0.8, val);
+  vec3 midColor = hsv2rgb(hue, sat, val * 0.7);
+  vec3 deepColor = hsv2rgb(hue, min(sat + 0.2, 1.0), val * 0.35);
+  vec3 baseColor = depth < 0.5
+    ? mix(surfaceColor, midColor, depth * 2.0)
+    : mix(midColor, deepColor, (depth - 0.5) * 2.0);
+
+  // Subsurface scattering: thin edges glow with transmitted light
+  float sssAmount = pow(1.0 - depth, 2.0) * 0.4;
+  vec3 sssColor = hsv2rgb(hue, sat * 0.4, 1.0) * sssAmount;
 
   // Phong lighting
   vec3 L = normalize(u_lightDir);
   vec3 V = vec3(0.0, 0.0, 1.0);
+  vec3 H = normalize(L + V); // Blinn-Phong half-vector (more stable specular)
   vec3 R = reflect(-L, normal);
 
-  float diffuse = max(dot(normal, L), 0.0);
-  float spec = pow(max(dot(R, V), 0.0), u_shininess);
+  float NdotL = max(dot(normal, L), 0.0);
+  float diffuse = NdotL;
 
-  // Rim lighting — stronger at edges for volume
-  float rim = 1.0 - max(dot(normal, V), 0.0);
-  rim = pow(rim, u_rimPower) * u_rimStrength;
+  // Blinn-Phong specular (sharper, more visible highlights)
+  float NdotH = max(dot(normal, H), 0.0);
+  float spec = pow(NdotH, u_shininess);
 
-  vec3 color = baseColor * (u_ambient + diffuse * 0.7)
+  // Fresnel-approximated rim (view-dependent edge glow)
+  float NdotV = max(dot(normal, V), 0.0);
+  float fresnel = pow(1.0 - NdotV, u_rimPower);
+  float rim = fresnel * u_rimStrength;
+
+  // Environment-style fill: soft hemisphere lighting
+  float hemiLight = 0.5 + 0.5 * normal.y;
+
+  vec3 color = baseColor * (u_ambient + diffuse * 0.6 + hemiLight * 0.15)
              + sssColor
              + vec3(1.0) * spec * u_specStrength
-             + baseColor * rim;
+             + surfaceColor * rim;
 
-  float alpha = smoothstep(u_threshold, u_threshold + 0.02, dc) * u_opacity;
+  float alpha = smoothstep(u_threshold, u_threshold + 0.015, dc) * u_opacity;
 
   gl_FragColor = vec4(color, alpha);
 }
