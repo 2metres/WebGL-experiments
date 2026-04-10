@@ -22,7 +22,7 @@ interface Particle {
   hue: number;
 }
 
-const MAX_PARTICLES = 20000;
+const MAX_PARTICLES = 50000;
 
 export class BubbleGrid {
   private emitters = new Map<number, Emitter>();

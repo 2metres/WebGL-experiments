@@ -99,8 +99,8 @@
 
   <div class="section">
     <h3>Particles</h3>
-    <RangeSlider label="Growth Rate" bind:value={growthRate} min={0.1} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Max Radius" bind:value={maxRadius} min={0.5} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Growth Rate" bind:value={growthRate} min={0.1} max={20} step={0.1} formatValue={(v) => v.toFixed(1)} />
+    <RangeSlider label="Max Radius" bind:value={maxRadius} min={0.5} max={40} step={0.5} formatValue={(v) => v.toFixed(1)} />
   </div>
 
   <div class="section">
@@ -118,8 +118,8 @@
 
   <div class="section">
     <h3>Fluid</h3>
-    <RangeSlider label="Threshold" bind:value={thickness} min={0.005} max={0.2} step={0.005} formatValue={(v) => v.toFixed(3)} />
-    <RangeSlider label="Density" bind:value={densityScale} min={0.01} max={0.5} step={0.005} formatValue={(v) => v.toFixed(3)} />
+    <RangeSlider label="Threshold" bind:value={thickness} min={0.002} max={0.2} step={0.002} formatValue={(v) => v.toFixed(3)} />
+    <RangeSlider label="Density" bind:value={densityScale} min={0.005} max={0.5} step={0.005} formatValue={(v) => v.toFixed(3)} />
     <RangeSlider label="Softness" bind:value={softness} min={0} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Absorption" bind:value={absorption} min={0} max={15} step={0.5} formatValue={(v) => v.toFixed(1)} />
     <RangeSlider label="Opacity" bind:value={opacity} min={0.05} max={1} step={0.05} formatValue={(v) => v.toFixed(2)} />
