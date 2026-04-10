@@ -16,6 +16,10 @@ import {
 import type { FBOHandle, ShaderProgram } from "../../lib/gl";
 
 export interface BubbleSettings {
+  spawnRate: number;
+  emitterLife: number;
+  spread: number;
+  particleLife: number;
   growthRate: number;
   maxRadius: number;
   brushRadius: number;
@@ -46,6 +50,10 @@ export class BubbleSimulation {
   private ext: ANGLE_instanced_arrays;
 
   settings: BubbleSettings = {
+    spawnRate: 8,
+    emitterLife: 5,
+    spread: 2.0,
+    particleLife: 4.0,
     growthRate: 3.0,
     maxRadius: 5.0,
     brushRadius: 4,
@@ -193,6 +201,7 @@ export class BubbleSimulation {
     this.grid.tick(
       dt, s.growthRate, s.maxRadius, this.audioLevel,
       s.physicsMode, s.gravity, s.viscosity, this.fieldSize,
+      s.spawnRate, s.emitterLife, s.spread, s.particleLife,
     );
 
     if (this.grid.cellCount === 0) {

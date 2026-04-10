@@ -14,6 +14,7 @@
   let drawing = false;
 
   const settingsKeys: (keyof Settings)[] = [
+    "spawnRate", "emitterLife", "spread", "particleLife",
     "growthRate", "maxRadius", "brushRadius",
     "physicsMode", "gravity", "viscosity",
     "thickness", "densityScale", "softness", "absorption",

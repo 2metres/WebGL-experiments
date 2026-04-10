@@ -2,6 +2,10 @@
   import { RangeSlider, SelectInput, SettingsPanel } from "../../lib/ui";
   import { settingsStore, DEFAULTS } from "./settingsStore";
 
+  let spawnRate = $state(settingsStore.getState().spawnRate);
+  let emitterLife = $state(settingsStore.getState().emitterLife);
+  let spread = $state(settingsStore.getState().spread);
+  let particleLife = $state(settingsStore.getState().particleLife);
   let growthRate = $state(settingsStore.getState().growthRate);
   let maxRadius = $state(settingsStore.getState().maxRadius);
   let brushRadius = $state(settingsStore.getState().brushRadius);
@@ -25,6 +29,10 @@
   let lightAngleX = $state(settingsStore.getState().lightAngleX);
   let lightAngleY = $state(settingsStore.getState().lightAngleY);
 
+  $effect(() => { settingsStore.getState().set("spawnRate", spawnRate); });
+  $effect(() => { settingsStore.getState().set("emitterLife", emitterLife); });
+  $effect(() => { settingsStore.getState().set("spread", spread); });
+  $effect(() => { settingsStore.getState().set("particleLife", particleLife); });
   $effect(() => { settingsStore.getState().set("growthRate", growthRate); });
   $effect(() => { settingsStore.getState().set("maxRadius", maxRadius); });
   $effect(() => { settingsStore.getState().set("brushRadius", brushRadius); });
@@ -50,6 +58,10 @@
 
   function resetDefaults() {
     settingsStore.getState().resetDefaults();
+    spawnRate = DEFAULTS.spawnRate;
+    emitterLife = DEFAULTS.emitterLife;
+    spread = DEFAULTS.spread;
+    particleLife = DEFAULTS.particleLife;
     growthRate = DEFAULTS.growthRate;
     maxRadius = DEFAULTS.maxRadius;
     brushRadius = DEFAULTS.brushRadius;
@@ -77,10 +89,18 @@
 
 <SettingsPanel onmousedown={(e) => e.stopPropagation()}>
   <div class="section">
-    <h3>Bubbles</h3>
+    <h3>Emitters</h3>
+    <RangeSlider label="Spawn Rate" bind:value={spawnRate} min={1} max={40} step={1} />
+    <RangeSlider label="Emitter Life" bind:value={emitterLife} min={0} max={30} step={0.5} formatValue={(v) => v === 0 ? "∞" : v.toFixed(1) + "s"} />
+    <RangeSlider label="Spread" bind:value={spread} min={0} max={6.28} step={0.1} formatValue={(v) => (v * 180 / Math.PI).toFixed(0) + "°"} />
+    <RangeSlider label="Particle Life" bind:value={particleLife} min={0.5} max={15} step={0.5} formatValue={(v) => v.toFixed(1) + "s"} />
+    <RangeSlider label="Brush Size" bind:value={brushRadius} min={1} max={10} step={1} />
+  </div>
+
+  <div class="section">
+    <h3>Particles</h3>
     <RangeSlider label="Growth Rate" bind:value={growthRate} min={0.1} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
     <RangeSlider label="Max Radius" bind:value={maxRadius} min={0.5} max={10} step={0.1} formatValue={(v) => v.toFixed(1)} />
-    <RangeSlider label="Brush Size" bind:value={brushRadius} min={1} max={10} step={1} />
   </div>
 
   <div class="section">

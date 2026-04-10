@@ -1,7 +1,11 @@
 import { createPersistedStore } from "../../lib/stores";
 
 export interface Settings {
-  // Bubbles
+  // Emitters & particles
+  spawnRate: number;     // particles per emitter per second
+  emitterLife: number;   // seconds before emitter dies (0=infinite)
+  spread: number;        // emit angle spread (radians)
+  particleLife: number;  // particle lifetime in seconds
   growthRate: number;
   maxRadius: number;
   brushRadius: number;
@@ -31,6 +35,10 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
+  spawnRate: 8,
+  emitterLife: 5,
+  spread: 2.0,
+  particleLife: 4.0,
   growthRate: 3.0,
   maxRadius: 5.0,
   brushRadius: 4,
