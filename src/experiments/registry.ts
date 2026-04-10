@@ -8,6 +8,11 @@ export interface ExperimentEntry {
 
 export const experiments: ExperimentEntry[] = [
   {
+    id: "bubble-map",
+    label: "Bubble Map",
+    loader: () => import("./bubble-map/BubbleMap.svelte"),
+  },
+  {
     id: "vector-map",
     label: "Vector Map",
     loader: () => import("./vector-map/VectorMap.svelte"),
