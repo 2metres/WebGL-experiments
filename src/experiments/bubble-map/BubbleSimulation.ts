@@ -39,6 +39,7 @@ export interface BubbleSettings {
   specStrength: number;
   fresnelF0: number;
   envBright: number;
+  bgBright: number;
   lightAngleX: number;
   lightAngleY: number;
 }
@@ -73,6 +74,7 @@ export class BubbleSimulation {
     specStrength: 1.5,
     fresnelF0: 0.04,
     envBright: 0.6,
+    bgBright: 0.9,
     lightAngleX: 0.5,
     lightAngleY: 0.8,
   };
@@ -136,7 +138,7 @@ export class BubbleSimulation {
         "u_density", "u_resolution", "u_threshold", "u_shininess",
         "u_lightDir", "u_specStrength",
         "u_opacity", "u_baseHue", "u_baseSat", "u_baseVal", "u_useBaseColor",
-        "u_depthScale", "u_absorption", "u_fresnelF0", "u_envBright",
+        "u_depthScale", "u_absorption", "u_fresnelF0", "u_envBright", "u_bgBright",
       ],
       attributes: ["a_position"],
     });
@@ -225,7 +227,7 @@ export class BubbleSimulation {
 
     if (this.grid.cellCount === 0) {
       gl.viewport(0, 0, this.width, this.height);
-      gl.clearColor(0.02, 0.02, 0.05, 1);
+      gl.clearColor(0.92, 0.91, 0.93, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
@@ -295,6 +297,7 @@ export class BubbleSimulation {
     gl.uniform1f(u["u_absorption"]!, s.absorption);
     gl.uniform1f(u["u_fresnelF0"]!, s.fresnelF0);
     gl.uniform1f(u["u_envBright"]!, s.envBright);
+    gl.uniform1f(u["u_bgBright"]!, s.bgBright);
 
     const lx = Math.sin(s.lightAngleX) * Math.cos(s.lightAngleY);
     const ly = Math.sin(s.lightAngleY);

@@ -26,6 +26,7 @@
   let specStrength = $state(settingsStore.getState().specStrength);
   let fresnelF0 = $state(settingsStore.getState().fresnelF0);
   let envBright = $state(settingsStore.getState().envBright);
+  let bgBright = $state(settingsStore.getState().bgBright);
   let lightAngleX = $state(settingsStore.getState().lightAngleX);
   let lightAngleY = $state(settingsStore.getState().lightAngleY);
 
@@ -53,6 +54,7 @@
   $effect(() => { settingsStore.getState().set("specStrength", specStrength); });
   $effect(() => { settingsStore.getState().set("fresnelF0", fresnelF0); });
   $effect(() => { settingsStore.getState().set("envBright", envBright); });
+  $effect(() => { settingsStore.getState().set("bgBright", bgBright); });
   $effect(() => { settingsStore.getState().set("lightAngleX", lightAngleX); });
   $effect(() => { settingsStore.getState().set("lightAngleY", lightAngleY); });
 
@@ -82,6 +84,7 @@
     specStrength = DEFAULTS.specStrength;
     fresnelF0 = DEFAULTS.fresnelF0;
     envBright = DEFAULTS.envBright;
+    bgBright = DEFAULTS.bgBright;
     lightAngleX = DEFAULTS.lightAngleX;
     lightAngleY = DEFAULTS.lightAngleY;
   }
@@ -145,6 +148,7 @@
     <RangeSlider label="Specular" bind:value={specStrength} min={0} max={3} step={0.1} formatValue={(v) => v.toFixed(1)} />
     <RangeSlider label="Fresnel F0" bind:value={fresnelF0} min={0.01} max={0.3} step={0.01} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Environment" bind:value={envBright} min={0} max={2} step={0.05} formatValue={(v) => v.toFixed(2)} />
+    <RangeSlider label="Background" bind:value={bgBright} min={0} max={1} step={0.05} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Light X" bind:value={lightAngleX} min={-1.5} max={1.5} step={0.05} formatValue={(v) => v.toFixed(2)} />
     <RangeSlider label="Light Y" bind:value={lightAngleY} min={-1.5} max={1.5} step={0.05} formatValue={(v) => v.toFixed(2)} />
   </div>

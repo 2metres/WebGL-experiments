@@ -30,6 +30,7 @@ export interface Settings {
   specStrength: number;
   fresnelF0: number;      // base reflectivity (0.02=water, higher=gooier)
   envBright: number;      // environment reflection brightness
+  bgBright: number;       // background brightness (0=dark, 1=white)
   lightAngleX: number;
   lightAngleY: number;
 }
@@ -59,6 +60,7 @@ export const DEFAULTS: Settings = {
   specStrength: 2.0,
   fresnelF0: 0.05,
   envBright: 1.0,
+  bgBright: 0.9,
   lightAngleX: 0.5,
   lightAngleY: 0.8,
 };

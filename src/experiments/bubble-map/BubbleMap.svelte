@@ -19,7 +19,7 @@
     "physicsMode", "gravity", "viscosity",
     "thickness", "densityScale", "softness", "absorption",
     "colorHue", "colorSat", "colorVal", "useBaseColor", "opacity",
-    "depthScale", "shininess", "specStrength", "fresnelF0", "envBright",
+    "depthScale", "shininess", "specStrength", "fresnelF0", "envBright", "bgBright",
     "lightAngleX", "lightAngleY",
   ];
 
